@@ -1,0 +1,21 @@
+{
+  "name": "rapture-ai",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "workspaces": [
+      "frontend",
+      "backend"
+    ],
+    "scripts": {
+      "dev": "concurrently \"pnpm --filter frontend dev\" \"pnpm --filter backend dev\"",
+      "build": "pnpm --filter frontend build && pnpm --filter backend build"
+    },
+    "devDependencies": {
+      "concurrently": "^8.2.2"
+    },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.26.2"
+}

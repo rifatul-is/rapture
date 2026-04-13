@@ -140,3 +140,10 @@ vite.config.ts.timestamp-*
 
 # Local LLM context (never push)
 .context/
+
+# Backend build output
+backend/dist/
+
+# Environment files (already have .env but make explicit)
+backend/.env
+frontend/.env.local
