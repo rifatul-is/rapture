@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intake     Intake?
+  curriculum Curriculum?
+}
+
+model Intake {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  targetRole    String
+  currentSkills String[]
+  targetSkills  String[]
+  hoursPerWeek  Int
+  deadlineDate  DateTime
+  createdAt     DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  curriculum Curriculum?
+}
+
+model Curriculum {
+  id       String @id @default(cuid())
+  userId   String @unique
+  intakeId String @unique
+  weeks    Json
+  createdAt DateTime @default(now())
+
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  intake Intake   @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+  tasks  Task[]
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  curriculumId String
+  title        String
+  description  String
+  type         TaskType
+  rubric       String
+  weekNumber   Int
+  orderIndex   Int
+  status       TaskStatus @default(PENDING)
+  dueDate      DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  submission Submission?
+}
+
+model Submission {
+  id        String   @id @default(cuid())
+  taskId    String   @unique
+  content   String
+  score     Int?
+  passed    Boolean?
+  feedback  String?
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+enum TaskStatus {
+  PENDING
+  SUBMITTED
+  PASSED
+  FAILED
+  OVERDUE
+}
+
+enum TaskType {
+  CODE
+  WRITTEN
+  DESIGN
+}
