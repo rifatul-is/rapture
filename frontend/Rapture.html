@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rapture AI — Make Quitting Impossible</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { background: #0a0a0a; color: #e8e8e8; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #0a0a0a; } ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Fade-up animation */
+    .fade-up { opacity: 0; transform: translateY(32px); transition: opacity 0.7s cubic-bezier(.22,1,.36,1), transform 0.7s cubic-bezier(.22,1,.36,1); }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+    .fade-up.delay-1 { transition-delay: 0.1s; }
+    .fade-up.delay-2 { transition-delay: 0.2s; }
+    .fade-up.delay-3 { transition-delay: 0.3s; }
+    .fade-up.delay-4 { transition-delay: 0.4s; }
+    .fade-up.delay-5 { transition-delay: 0.5s; }
+
+    /* Glow */
+    .violet-glow { box-shadow: 0 0 40px rgba(160,120,255,0.18), 0 0 80px rgba(160,120,255,0.06); }
+    .violet-glow-sm { box-shadow: 0 0 20px rgba(160,120,255,0.15); }
+    .violet-glow-text { text-shadow: 0 0 30px rgba(160,120,255,0.5); }
+
+    /* Grid noise overlay */
+    .noise-bg::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      opacity: 0.4;
+    }
+
+    /* Grid lines */
+    .grid-overlay {
+      background-image: linear-gradient(rgba(160,120,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(160,120,255,0.04) 1px, transparent 1px);
+      background-size: 64px 64px;
+    }
+
+    /* Cursor blink */
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+    .cursor { display: inline-block; width: 3px; height: 1em; background: #a078ff; margin-left: 2px; vertical-align: middle; animation: blink 1s step-end infinite; }
+
+    /* Locked task shake */
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} }
+    .shake { animation: shake 0.5s ease; }
+
+    /* Gradient border */
+    .gradient-border { position: relative; }
+    .gradient-border::before {
+      content: ''; position: absolute; inset: -1px; border-radius: inherit;
+      background: linear-gradient(135deg, rgba(160,120,255,0.4) 0%, rgba(160,120,255,0.05) 50%, rgba(160,120,255,0.2) 100%);
+      z-index: -1;
+    }
+
+    /* Email card */
+    .email-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.05em; }
+
+    /* Step connector */
+    .step-line { position: absolute; left: 19px; top: 40px; bottom: -24px; width: 2px; background: linear-gradient(to bottom, rgba(160,120,255,0.4), rgba(160,120,255,0.05)); }
+
+    /* Scrolling ticker */
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .ticker-inner { display: flex; animation: ticker 25s linear infinite; }
+
+    /* Button hover */
+    .btn-primary { transition: all 0.2s; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(160,120,255,0.35); }
+    .btn-primary:active { transform: translateY(0); }
+
+    /* Card hover */
+    .feature-card { transition: all 0.3s cubic-bezier(.22,1,.36,1); }
+    .feature-card:hover { transform: translateY(-4px); border-color: rgba(160,120,255,0.4) !important; }
+    .feature-card:hover .card-icon { box-shadow: 0 0 20px rgba(160,120,255,0.3); }
+
+    /* Form focus */
+    .form-input:focus { outline: none; border-color: rgba(160,120,255,0.6); box-shadow: 0 0 0 3px rgba(160,120,255,0.1); }
+
+    /* Locked overlay shimmer */
+    @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+    .shimmer-lock {
+      background: linear-gradient(90deg, rgba(160,120,255,0.05) 0%, rgba(160,120,255,0.15) 50%, rgba(160,120,255,0.05) 100%);
+      background-size: 200% auto;
+      animation: shimmer 2.5s linear infinite;
+    }
+
+    /* Progress bar pulse */
+    @keyframes pulse-bar { 0%,100%{opacity:1}50%{opacity:0.6} }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            violet: { DEFAULT: '#a078ff', dark: '#7a50d0', light: '#c4a4ff', faint: 'rgba(160,120,255,0.08)' },
+            surface: { DEFAULT: '#111111', raised: '#161616', border: '#1e1e1e', muted: '#2a2a2a' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ── Scroll observer hook ─────────────────────────────────────── */
+function useFadeUp(threshold = 0.15) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { el.classList.add('visible'); obs.disconnect(); }
+    }, { threshold });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return ref;
+}
+
+function FadeUp({ children, delay = 0, className = '', as: Tag = 'div' }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { el.classList.add('visible'); obs.disconnect(); }
+    }, { threshold: 0.12 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <Tag
+      ref={ref}
+      className={`fade-up ${delay ? `delay-${delay}` : ''} ${className}`}
+      style={delay ? { transitionDelay: `${delay * 0.1}s` } : undefined}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+/* ── Typing effect ────────────────────────────────────────────── */
+const FULL_TEXT = "You've started 6 courses this year.\nYou finished 0.\nRapture AI makes quitting impossible.";
+function TypingHero() {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    let i = 0;
+    const delays = [];
+    function type() {
+      if (i <= FULL_TEXT.length) {
+        setDisplayed(FULL_TEXT.slice(0, i));
+        if (i === FULL_TEXT.length) setDone(true);
+        i++;
+        const next = FULL_TEXT[i] === '\n' ? 300 : Math.random() * 30 + 25;
+        delays.push(setTimeout(type, next));
+      }
+    }
+    const start = setTimeout(type, 600);
+    return () => { clearTimeout(start); delays.forEach(clearTimeout); };
+  }, []);
+
+  const lines = displayed.split('\n');
+  return (
+    <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-[1.08] tracking-tight text-white">
+      {lines.map((line, i) => (
+        <span key={i} className="block">
+          {i === 2
+            ? line.split('Rapture AI').map((part, j) =>
+                j === 0
+                  ? <span key={j}>{part}</span>
+                  : <React.Fragment key={j}><span className="text-violet-DEFAULT violet-glow-text">Rapture AI</span>{part}</React.Fragment>
+              )
+            : <span className={i === 1 ? 'text-zinc-400' : ''}>{line}</span>
+          }
+          {i === lines.length - 1 && !done && <span className="cursor" />}
+        </span>
+      ))}
+      {done && <span className="cursor" />}
+    </h1>
+  );
+}
+
+/* ── Ticker bar ───────────────────────────────────────────────── */
+const TICKER_ITEMS = [
+  'HARD TASK LOCKS', 'AI GRADING', 'ACCOUNTABILITY EMAILS', 'LOCKED RUBRICS',
+  '3 WEEKS FREE', 'EARN BACK $5', 'SOCIAL RECOVERY', 'MISS A DEADLINE — THEY FIND OUT',
+  'NO SKIPPING', 'SHIP OR FAIL', 'DYNAMIC PLANS', 'ROLL OVER YOUR REFUND'
+];
+function Ticker() {
+  const items = [...TICKER_ITEMS, ...TICKER_ITEMS];
+  return (
+    <div className="overflow-hidden border-y border-surface-border py-3 bg-surface-DEFAULT">
+      <div className="ticker-inner">
+        {items.map((item, i) => (
+          <span key={i} className="mono text-xs font-semibold tracking-widest text-violet-DEFAULT px-8 whitespace-nowrap">
+            {item} <span className="text-surface-muted mx-2">◆</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Navbar ───────────────────────────────────────────────────── */
+function Navbar({ onWaitlist }) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const h = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', h);
+    return () => window.removeEventListener('scroll', h);
+  }, []);
+  return (
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#0a0a0a]/90 backdrop-blur-md border-b border-surface-border' : ''}`}>
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-md bg-violet-DEFAULT flex items-center justify-center violet-glow-sm">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" fill="white" fillOpacity="0.9"/>
+              <path d="M7 4L10 5.75V9.25L7 11L4 9.25V5.75L7 4Z" fill="#0a0a0a" fillOpacity="0.6"/>
+            </svg>
+          </div>
+          <span className="font-bold text-white tracking-tight text-lg">Rapture<span className="text-violet-DEFAULT">AI</span></span>
+        </div>
+        <div className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+          <a href="#problem" className="hover:text-white transition-colors">Problem</a>
+          <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
+          <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+          <a href="#features" className="hover:text-white transition-colors">Features</a>
+          <a href="#who" className="hover:text-white transition-colors">Who It's For</a>
+        </div>
+        <button onClick={onWaitlist} className="btn-primary bg-violet-DEFAULT text-white text-sm font-semibold px-4 py-2 rounded-lg">
+          Join Waitlist
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+function Hero({ onWaitlist }) {
+  return (
+    <section className="relative min-h-screen flex flex-col justify-center pt-24 pb-16 noise-bg grid-overlay overflow-hidden">
+      {/* Radial glow */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse, rgba(160,120,255,0.08) 0%, transparent 70%)' }} />
+      <div className="relative z-10 max-w-6xl mx-auto px-6 w-full">
+        <div className="max-w-3xl">
+          <div className="fade-up visible mb-6">
+            <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest border border-violet-DEFAULT/30 rounded-full px-3 py-1.5 bg-violet-faint">
+              EARLY ACCESS — LIMITED SPOTS
+            </span>
+          </div>
+          <TypingHero />
+          <FadeUp delay={3} className="mt-8 text-lg text-zinc-400 leading-relaxed max-w-xl">
+            Build your own curriculum. Lock it. Put $10 on the line. Hit every deadline and earn back $5. Miss one — your contact finds out and your refund shrinks. Progress isn't optional. Neither are consequences.
+          </FadeUp>
+          <FadeUp delay={4} className="mt-10 flex flex-col sm:flex-row gap-4 items-start">
+            <button onClick={onWaitlist} className="btn-primary bg-violet-DEFAULT text-white font-bold px-8 py-3.5 rounded-xl text-base violet-glow">
+              Get Early Access →
+            </button>
+            <a href="#how-it-works" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors py-3.5 text-base font-medium">
+              <span>See how it works</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </a>
+          </FadeUp>
+          <FadeUp delay={5} className="mt-12 flex items-center gap-6 text-sm text-zinc-500">
+            <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" style={{boxShadow:'0 0 6px rgba(52,211,153,0.6)'}}></span>247 engineers on the waitlist</span>
+            <span>·</span>
+            <span>No credit card required</span>
+          </FadeUp>
+        </div>
+        {/* Hero mockup */}
+        <FadeUp delay={2} className="mt-16 lg:mt-0 lg:absolute lg:right-6 lg:top-1/2 lg:-translate-y-1/2 lg:w-[420px]">
+          <HeroMockup />
+        </FadeUp>
+      </div>
+    </section>
+  );
+}
+
+function HeroMockup() {
+  const tasks = [
+    { label: 'Week 1 — Setup & Architecture', done: true },
+    { label: 'Week 2 — REST API Foundations', done: true },
+    { label: 'Week 3 — Auth & JWT', done: false, locked: false, active: true },
+    { label: 'Week 4 — Database Design', done: false, locked: true },
+    { label: 'Week 5 — Testing & CI', done: false, locked: true },
+    { label: 'Week 6 — Performance', done: false, locked: true },
+  ];
+  return (
+    <div className="gradient-border rounded-2xl bg-surface-DEFAULT p-1 violet-glow">
+      <div className="rounded-xl bg-[#0d0d0d] overflow-hidden">
+        {/* Title bar */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-surface-border">
+          <div className="w-3 h-3 rounded-full bg-red-500/60"></div>
+          <div className="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+          <div className="w-3 h-3 rounded-full bg-emerald-500/60"></div>
+          <span className="mono text-xs text-zinc-500 ml-3">rapture.ai — curriculum</span>
+        </div>
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-surface-border">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="mono text-xs text-zinc-500 mb-1">ACTIVE TRACK</p>
+              <h3 className="text-white font-bold text-sm">Full-Stack Engineer Path</h3>
+            </div>
+            <span className="mono text-xs bg-violet-faint text-violet-DEFAULT border border-violet-DEFAULT/20 px-2 py-1 rounded-md">8 weeks</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 rounded-full bg-surface-muted">
+              <div className="h-full w-[33%] rounded-full bg-gradient-to-r from-violet-DEFAULT to-violet-light"></div>
+            </div>
+            <span className="mono text-xs text-zinc-500">2/6 done</span>
+          </div>
+        </div>
+        {/* Tasks */}
+        <div className="p-4 space-y-2">
+          {tasks.map((task, i) => (
+            <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg ${task.active ? 'bg-violet-faint border border-violet-DEFAULT/20' : task.locked ? 'opacity-40' : ''}`}>
+              <div className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ${task.done ? 'bg-emerald-500/20 border border-emerald-500/40' : task.active ? 'border border-violet-DEFAULT/60' : 'border border-surface-muted'}`}>
+                {task.done
+                  ? <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  : task.locked
+                  ? <svg width="8" height="10" viewBox="0 0 8 10" fill="none"><rect x="1" y="4" width="6" height="5" rx="1" fill="#555"/><path d="M2.5 4V2.5a1.5 1.5 0 013 0V4" stroke="#555" strokeWidth="1.2"/></svg>
+                  : <div className="w-1.5 h-1.5 rounded-full bg-violet-DEFAULT"></div>
+                }
+              </div>
+              <span className={`text-xs font-medium ${task.done ? 'text-zinc-500 line-through' : task.active ? 'text-white' : 'text-zinc-500'}`}>{task.label}</span>
+              {task.locked && <span className="ml-auto mono text-[10px] text-zinc-600 bg-surface-raised px-1.5 py-0.5 rounded">LOCKED</span>}
+              {task.active && <span className="ml-auto mono text-[10px] text-violet-DEFAULT bg-violet-faint px-1.5 py-0.5 rounded border border-violet-DEFAULT/20">DUE FRI</span>}
+            </div>
+          ))}
+        </div>
+        {/* Footer alert */}
+        <div className="mx-4 mb-4 p-3 rounded-lg bg-red-500/8 border border-red-500/20 flex items-start gap-2.5">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="mt-0.5 flex-shrink-0"><path d="M7 1L13 12H1L7 1Z" stroke="#f87171" strokeWidth="1.2" strokeLinejoin="round"/><path d="M7 5V8" stroke="#f87171" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7" cy="10.5" r="0.6" fill="#f87171"/></svg>
+          <p className="text-xs text-red-400/90 leading-relaxed"><span className="font-semibold">Deadline in 2 days.</span> Miss it and your contact gets notified.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Problem Section ──────────────────────────────────────────── */
+function ProblemSection() {
+  return (
+    <section id="problem" className="py-28 border-t border-surface-border">
+      <div className="max-w-6xl mx-auto px-6">
+        <FadeUp className="text-center mb-4">
+          <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest">THE PROBLEM</span>
+        </FadeUp>
+        <FadeUp className="text-center mb-6">
+          <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">The Judge &amp; The Defendant</h2>
+        </FadeUp>
+        <FadeUp className="text-center mb-16">
+          <p className="text-zinc-400 text-lg max-w-xl mx-auto">You know what you need to learn. You just never finish. Here's why — and how Rapture AI fixes it.</p>
+        </FadeUp>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Without Rapture */}
+          <FadeUp delay={1} className="rounded-2xl bg-surface-DEFAULT border border-surface-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-surface-border flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2L12 12M12 2L2 12" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </div>
+              <h3 className="text-white font-bold">Without Rapture AI</h3>
+              <span className="ml-auto mono text-xs text-red-400 bg-red-500/8 border border-red-500/20 px-2 py-1 rounded">THE DEFENDANT</span>
+            </div>
+            <div className="p-6 space-y-4">
+              {[
+                { icon: '📂', title: 'Open course. Watch 3 videos.', sub: 'Close tab. Tell yourself you\'ll pick it up tomorrow.' },
+                { icon: '🔓', title: 'Skip any module, any time.', sub: 'Jump to the "fun" parts. Miss the fundamentals. Build on sand.' },
+                { icon: '📊', title: 'Self-reported progress.', sub: '"I basically finished it." You\'ve watched 12% and paused for 6 weeks.' },
+                { icon: '🤷', title: 'Zero accountability.', sub: 'Nobody knows you quit. So quitting costs nothing.' },
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-surface-raised border border-surface-border flex items-center justify-center text-base flex-shrink-0">{item.icon}</div>
+                  <div>
+                    <p className="text-white text-sm font-semibold mb-0.5">{item.title}</p>
+                    <p className="text-zinc-500 text-sm leading-relaxed">{item.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Dropout chart mockup */}
+            <div className="mx-6 mb-6 p-4 rounded-xl bg-surface-raised border border-surface-border">
+              <p className="mono text-xs text-zinc-500 mb-3">COMPLETION RATE — SELF-DIRECTED LEARNING</p>
+              <div className="flex items-end gap-1.5 h-16">
+                {[100,88,71,54,38,22,14,6].map((v,i) => (
+                  <div key={i} className="flex-1 rounded-sm" style={{ height: `${v}%`, background: `rgba(248,113,113,${0.15 + i * 0.05})` }}></div>
+                ))}
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="mono text-xs text-zinc-600">Day 1</span>
+                <span className="mono text-xs text-red-400">Day 56 → 6% finish</span>
+              </div>
+            </div>
+          </FadeUp>
+
+          {/* With Rapture */}
+          <FadeUp delay={2} className="rounded-2xl bg-surface-DEFAULT border border-violet-DEFAULT/30 overflow-hidden violet-glow">
+            <div className="px-6 py-4 border-b border-violet-DEFAULT/20 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-violet-DEFAULT/10 border border-violet-DEFAULT/30 flex items-center justify-center">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5.5 10.5L12 3.5" stroke="#a078ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <h3 className="text-white font-bold">With Rapture AI</h3>
+              <span className="ml-auto mono text-xs text-violet-DEFAULT bg-violet-faint border border-violet-DEFAULT/20 px-2 py-1 rounded">THE JUDGE</span>
+            </div>
+            <div className="p-6 space-y-4">
+              {[
+                { icon: '🔒', title: 'Modules unlock only when earned.', sub: 'Can\'t skip Week 3 until the AI grades your Week 2 project as passing.' },
+                { icon: '📋', title: 'AI-graded tasks with rubrics.', sub: 'Every deliverable is scored against strict criteria. Partial credit denied.' },
+                { icon: '📧', title: 'Real accountability emails.', sub: 'Miss a deadline and your contact gets an email. No hiding.' },
+                { icon: '⏱', title: 'Hard deadlines, not suggestions.', sub: 'Deadlines are enforced. The curriculum doesn\'t wait for you.' },
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-violet-DEFAULT/8 border border-violet-DEFAULT/20 flex items-center justify-center text-base flex-shrink-0">{item.icon}</div>
+                  <div>
+                    <p className="text-white text-sm font-semibold mb-0.5">{item.title}</p>
+                    <p className="text-zinc-500 text-sm leading-relaxed">{item.sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Completion chart mockup */}
+            <div className="mx-6 mb-6 p-4 rounded-xl bg-surface-raised border border-violet-DEFAULT/15">
+              <p className="mono text-xs text-zinc-500 mb-3">COMPLETION RATE — RAPTURE AI</p>
+              <div className="flex items-end gap-1.5 h-16">
+                {[100,98,95,91,88,85,82,79].map((v,i) => (
+                  <div key={i} className="flex-1 rounded-sm" style={{ height: `${v}%`, background: `rgba(160,120,255,${0.2 + i * 0.04})` }}></div>
+                ))}
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="mono text-xs text-zinc-600">Day 1</span>
+                <span className="mono text-xs text-violet-DEFAULT">Day 56 → 79% finish</span>
+              </div>
+            </div>
+          </FadeUp>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Financial Stakes Section ────────────────────────────────── */
+function FinancialStakeSection() {
+  const [simMisses, setSimMisses] = useState(0);
+  const [simRecovered, setSimRecovered] = useState(0);
+  const refundBalance = Math.max(0, 5 - simMisses + simRecovered);
+  const nextCharge = Math.max(0, 10 - refundBalance);
+
+  return (
+    <section id="pricing" className="py-28 border-t border-surface-border relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse 70% 50% at 50% 50%, rgba(160,120,255,0.05) 0%, transparent 70%)'}} />
+      <div className="relative max-w-6xl mx-auto px-6">
+        <FadeUp className="text-center mb-4">
+          <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest">PRICING & STAKES</span>
+        </FadeUp>
+        <FadeUp className="text-center mb-4">
+          <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Your money. Your move.</h2>
+        </FadeUp>
+        <FadeUp className="text-center mb-16">
+          <p className="text-zinc-400 text-lg max-w-xl mx-auto">Three weeks free. Then $10/month — with up to $5 back if you do the work. Miss deadlines and lose it. Recover it by owning your failure publicly.</p>
+        </FadeUp>
+
+        {/* Timeline */}
+        <FadeUp className="mb-16">
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* Beta */}
+            <div className="rounded-2xl bg-surface-DEFAULT border border-emerald-500/25 p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none" style={{background:'radial-gradient(circle, rgba(52,211,153,0.06) 0%, transparent 70%)'}} />
+              <span className="mono text-xs font-semibold text-emerald-400 tracking-widest block mb-3">WEEKS 1–3</span>
+              <div className="text-3xl font-black text-white mb-1">Free</div>
+              <p className="text-zinc-500 text-sm mb-5 leading-relaxed">Full platform access. Build and lock your curriculum. Tasks Week 1–3 are fully available. No payment required.</p>
+              <ul className="space-y-2">
+                {['Full curriculum builder','AI task grading','Accountability emails active','Week 1–3 tasks unlocked'].map((f,i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs text-zinc-400">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.5 8.5L10 3" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Paid */}
+            <div className="rounded-2xl bg-surface-DEFAULT border border-violet-DEFAULT/35 p-6 relative overflow-hidden violet-glow">
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none" style={{background:'radial-gradient(circle, rgba(160,120,255,0.08) 0%, transparent 70%)'}} />
+              <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest block mb-3">WEEK 4 ONWARDS</span>
+              <div className="flex items-end gap-2 mb-1">
+                <div className="text-3xl font-black text-white">$10</div>
+                <div className="text-zinc-500 text-sm mb-1">/month</div>
+              </div>
+              <p className="text-zinc-500 text-sm mb-5 leading-relaxed">Pay to unlock Week 4+. Hit every deadline and earn back $5. Miss deadlines and lose it — $1 per miss.</p>
+              <ul className="space-y-2">
+                {['All tasks unlocked','$5 potential refund each cycle','−$1 per missed deadline','Social recovery to claw back $1'].map((f,i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs text-zinc-400">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.5 8.5L10 3" stroke="#a078ff" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Rollover */}
+            <div className="rounded-2xl bg-surface-DEFAULT border border-amber-500/25 p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none" style={{background:'radial-gradient(circle, rgba(251,191,36,0.05) 0%, transparent 70%)'}} />
+              <span className="mono text-xs font-semibold text-amber-400 tracking-widest block mb-3">CONSISTENT USERS</span>
+              <div className="flex items-end gap-2 mb-1">
+                <div className="text-3xl font-black text-white">$0</div>
+                <div className="text-zinc-500 text-sm mb-1">effective</div>
+              </div>
+              <p className="text-zinc-500 text-sm mb-5 leading-relaxed">Roll your refund into next month's bill. Two perfect months back-to-back and the platform pays for itself.</p>
+              <ul className="space-y-2">
+                {['Roll $5 → reduce next bill','$10 − $5 credit = $5 next month','Stack 2 months = $0 effective','Credits stack up to $20'].map((f,i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs text-zinc-400">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.5 8.5L10 3" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </FadeUp>
+
+        {/* Interactive flow */}
+        <FadeUp>
+          <div className="rounded-2xl bg-surface-DEFAULT border border-surface-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-surface-border flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-violet-DEFAULT" style={{boxShadow:'0 0 6px rgba(160,120,255,0.6)'}}></div>
+              <span className="mono text-xs text-zinc-400 font-semibold tracking-wider">HOW YOUR $10 MOVES — INTERACTIVE</span>
+            </div>
+            <div className="grid md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-surface-border">
+              {/* Left: flow diagram */}
+              <div className="p-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-surface-raised border border-surface-border flex items-center justify-center flex-shrink-0">
+                    <span className="text-base">💳</span>
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-semibold">You pay $10.00</p>
+                    <p className="text-zinc-500 text-xs">Charged at start of billing cycle</p>
+                  </div>
+                  <span className="ml-auto mono text-sm font-bold text-white">$10</span>
+                </div>
+                <div className="ml-4 pl-5 border-l border-surface-muted space-y-3 py-1">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-violet-DEFAULT flex-shrink-0"></div>
+                    <p className="text-zinc-400 text-xs flex-1">$5 potential refund added to your balance</p>
+                    <span className="mono text-xs text-violet-DEFAULT font-semibold">+$5 refund</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${simMisses > 0 ? 'bg-red-400' : 'bg-surface-muted'}`}></div>
+                    <p className="text-zinc-400 text-xs flex-1">Per missed deadline (max 5)</p>
+                    <span className={`mono text-xs font-semibold ${simMisses > 0 ? 'text-red-400' : 'text-zinc-600'}`}>−${simMisses}.00</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${simRecovered > 0 ? 'bg-violet-DEFAULT' : 'bg-surface-muted'}`}></div>
+                    <p className="text-zinc-400 text-xs flex-1">Per verified social recovery post</p>
+                    <span className={`mono text-xs font-semibold ${simRecovered > 0 ? 'text-violet-DEFAULT' : 'text-zinc-600'}`}>+${simRecovered}.00</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 pt-1 border-t border-surface-border">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center flex-shrink-0">
+                    <span className="text-base">💰</span>
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-semibold">Your refund: ${refundBalance}.00</p>
+                    <p className="text-zinc-500 text-xs">Cash out or roll to next month</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="mono text-xs text-zinc-500">next bill</p>
+                    <p className={`mono text-sm font-bold ${nextCharge === 0 ? 'text-emerald-400' : nextCharge <= 5 ? 'text-violet-DEFAULT' : 'text-white'}`}>
+                      ${nextCharge}.00{nextCharge === 0 ? ' 🎉' : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {/* Right: simulator */}
+              <div className="p-6">
+                <p className="mono text-xs text-zinc-500 mb-4 tracking-wider">SIMULATE YOUR MONTH</p>
+                <div className="space-y-3 mb-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-400">Missed deadlines</span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setSimMisses(m => Math.max(0, m-1))} className="w-7 h-7 rounded-lg bg-surface-raised border border-surface-border text-white text-xs hover:border-red-500/40 transition-colors">−</button>
+                      <span className="mono text-sm text-white font-bold w-4 text-center">{simMisses}</span>
+                      <button onClick={() => setSimMisses(m => Math.min(5, m+1))} className="w-7 h-7 rounded-lg bg-surface-raised border border-surface-border text-white text-xs hover:border-red-500/40 transition-colors">+</button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-400">Social recoveries</span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setSimRecovered(r => Math.max(0, r-1))} className="w-7 h-7 rounded-lg bg-surface-raised border border-surface-border text-white text-xs hover:border-violet-DEFAULT/40 transition-colors">−</button>
+                      <span className="mono text-sm text-white font-bold w-4 text-center">{Math.min(simRecovered, simMisses)}</span>
+                      <button onClick={() => setSimRecovered(r => Math.min(simMisses, r+1))} className="w-7 h-7 rounded-lg bg-surface-raised border border-surface-border text-white text-xs hover:border-violet-DEFAULT/40 transition-colors">+</button>
+                    </div>
+                  </div>
+                </div>
+                {/* Refund bar */}
+                <div className="mb-4">
+                  <div className="flex justify-between mb-1.5">
+                    <span className="mono text-xs text-zinc-500">REFUND BALANCE</span>
+                    <span className={`mono text-xs font-bold ${refundBalance >= 4 ? 'text-emerald-400' : refundBalance >= 2 ? 'text-amber-400' : 'text-red-400'}`}>${refundBalance}.00 / $5.00</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1,2,3,4,5].map(n => (
+                      <div key={n} className={`flex-1 h-3 rounded-full transition-all duration-300 ${n <= refundBalance ? (refundBalance >= 4 ? 'bg-emerald-500' : refundBalance >= 2 ? 'bg-amber-500' : 'bg-red-500') : 'bg-surface-muted'}`}></div>
+                    ))}
+                  </div>
+                </div>
+                <div className={`p-3 rounded-xl border text-center ${nextCharge === 0 ? 'bg-emerald-500/6 border-emerald-500/20' : nextCharge <= 5 ? 'bg-violet-DEFAULT/8 border-violet-DEFAULT/20' : 'bg-surface-raised border-surface-border'}`}>
+                  <p className="mono text-xs text-zinc-500 mb-1">IF YOU ROLL OVER</p>
+                  <p className={`text-2xl font-black ${nextCharge === 0 ? 'text-emerald-400' : 'text-white'}`}>${nextCharge}.00</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">next month's charge</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </FadeUp>
+      </div>
+    </section>
+  );
+}
+
+/* ── 6-Step Walkthrough ───────────────────────────────────────── */
+const STEPS = [
+  {
+    n: '01',
+    title: 'Build your curriculum — then lock it forever',
+    sub: 'Design every task, milestone, and deadline from scratch to fit your exact goals. Use a template or start blank. Once you hit Lock, it\'s immutable — no editing, no goal-shifting, no lowering the bar when it gets hard.',
+    badge: 'CURRICULUM BUILDER',
+    mockup: 'CurriculumMockup',
+  },
+  {
+    n: '02',
+    title: 'Set your accountability contact',
+    sub: 'Designate a real person — a manager, mentor, or colleague. They are notified every time you miss a deadline. Not by you. By us. Automatically. You chose this person for a reason.',
+    badge: 'CONTACT SETUP',
+    mockup: 'ContactMockup',
+  },
+  {
+    n: '03',
+    title: 'Work through tasks with strict rubrics',
+    sub: 'Each task has a rubric with non-negotiable criteria. The AI evaluates your submission against every point. No vague feedback — pass or fail.',
+    badge: 'AI GRADING',
+    mockup: 'RubricMockup',
+  },
+  {
+    n: '04',
+    title: 'Submit — AI grades instantly',
+    sub: 'Paste your code, GitHub link, or write-up. Rapture AI grades it within seconds and returns a detailed breakdown.',
+    badge: 'INSTANT RESULTS',
+    mockup: 'GradingMockup',
+  },
+  {
+    n: '05',
+    title: 'Miss a deadline — contact notified, refund cut',
+    sub: 'Your contact gets an email the next morning. And you lose $1 from your $5 potential refund. Miss 5 times and you\'ve forfeited the full $5. The only way to claw it back: post your failure publicly on social media.',
+    badge: 'ACCOUNTABILITY + PENALTY',
+    mockup: 'EmailMockup',
+  },
+  {
+    n: '06',
+    title: 'Cash out — or roll over to next month',
+    sub: 'At cycle end, whatever refund you\'ve preserved is yours. Take it back to your card, or roll it into next month\'s subscription. Two perfect months and the platform effectively pays for itself.',
+    badge: 'REFUND PAYOUT',
+    mockup: 'UnlockMockup',
+  },
+];
+
+function CurriculumMockup() {
+  const [locked, setLocked] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
+  const tasks = [
+    { week: 'Week 1', title: 'Git workflow & project setup', deadline: 'May 5' },
+    { week: 'Week 2', title: 'REST API design in Node.js', deadline: 'May 12' },
+    { week: 'Week 3', title: 'Auth, JWT & middleware', deadline: 'May 19' },
+    { week: 'Week 4', title: 'PostgreSQL & Prisma ORM', deadline: 'May 26' },
+  ];
+  const canLock = confirmText === 'LOCK MY CURRICULUM';
+  return (
+    <div className="rounded-xl bg-[#0d0d0d] border border-surface-border overflow-hidden text-sm">
+      <div className="px-4 py-3 border-b border-surface-border flex items-center justify-between">
+        <span className="mono text-xs text-zinc-500">Curriculum Builder</span>
+        {locked
+          ? <span className="mono text-xs text-red-400 bg-red-500/8 border border-red-500/20 px-2 py-0.5 rounded">🔒 LOCKED</span>
+          : <span className="mono text-xs text-emerald-400 bg-emerald-500/8 border border-emerald-500/20 px-2 py-0.5 rounded">✎ EDIT MODE</span>
+        }
+      </div>
+      <div className="p-3 space-y-1.5">
+        {tasks.map((t, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-raised border border-surface-border group">
+            <div className="w-4 h-4 rounded bg-violet-DEFAULT/10 border border-violet-DEFAULT/30 flex-shrink-0 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-violet-DEFAULT"></div>
+            </div>
+            <span className="mono text-[10px] text-zinc-600 w-12 flex-shrink-0">{t.week}</span>
+            <span className={`flex-1 text-xs ${locked ? 'text-zinc-400' : 'text-white'}`}>{t.title}</span>
+            <span className="mono text-[10px] text-zinc-600">{t.deadline}</span>
+            {!locked && (
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity mono text-[10px] text-violet-DEFAULT cursor-pointer">edit</span>
+            )}
+          </div>
+        ))}
+        {!locked && (
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-dashed border-surface-muted cursor-pointer hover:border-violet-DEFAULT/30 transition-colors">
+            <span className="text-zinc-600 text-xs">+ Add task…</span>
+          </div>
+        )}
+      </div>
+      {!locked && !showConfirm && (
+        <div className="px-3 pb-3">
+          <button onClick={() => setShowConfirm(true)} className="w-full py-2.5 rounded-lg bg-violet-DEFAULT/10 border border-violet-DEFAULT/30 text-violet-DEFAULT text-xs font-bold mono tracking-wider hover:bg-violet-DEFAULT/20 transition-colors">
+            LOCK CURRICULUM →
+          </button>
+        </div>
+      )}
+      {showConfirm && !locked && (
+        <div className="px-3 pb-3 space-y-2">
+          <p className="mono text-[10px] text-zinc-500 px-1">Type <span className="text-violet-DEFAULT">LOCK MY CURRICULUM</span> to confirm. This cannot be undone.</p>
+          <input
+            value={confirmText} onChange={e => setConfirmText(e.target.value)}
+            placeholder="LOCK MY CURRICULUM"
+            className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-surface-border text-white text-xs mono placeholder-zinc-700 focus:outline-none focus:border-violet-DEFAULT/60"
+          />
+          <button
+            onClick={() => canLock && setLocked(true)}
+            className={`w-full py-2 rounded-lg text-xs font-bold mono tracking-wider transition-all ${canLock ? 'bg-red-500/80 text-white hover:bg-red-500' : 'bg-surface-raised text-zinc-600 cursor-not-allowed'}`}
+          >
+            {canLock ? '🔒 LOCK FOREVER' : 'TYPE TO UNLOCK BUTTON'}
+          </button>
+        </div>
+      )}
+      {locked && (
+        <div className="mx-3 mb-3 p-3 rounded-lg bg-red-500/6 border border-red-500/15">
+          <p className="text-xs text-red-400/90 leading-relaxed"><strong>Curriculum locked.</strong> No edits permitted. Deadline enforcement is now active.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContactMockup() {
+  return (
+    <div className="rounded-xl bg-[#0d0d0d] border border-surface-border overflow-hidden text-sm">
+      <div className="px-4 py-3 border-b border-surface-border"><span className="mono text-xs text-zinc-500">Accountability Contact Setup</span></div>
+      <div className="p-5 space-y-4">
+        <div>
+          <label className="mono text-xs text-zinc-500 block mb-2">CONTACT EMAIL</label>
+          <div className="px-3 py-2.5 rounded-lg bg-surface-raised border border-surface-border font-mono text-sm text-zinc-300">sarah.chen@company.com</div>
+        </div>
+        <div>
+          <label className="mono text-xs text-zinc-500 block mb-2">RELATIONSHIP</label>
+          <div className="px-3 py-2.5 rounded-lg bg-surface-raised border border-violet-DEFAULT/30 font-mono text-sm text-violet-DEFAULT">Engineering Manager</div>
+        </div>
+        <div className="p-3 rounded-lg bg-amber-500/6 border border-amber-500/20">
+          <p className="text-xs text-amber-400/90 leading-relaxed"><span className="font-semibold">This person will be notified.</span> They'll receive an email every time you miss a deadline. Choose wisely.</p>
+        </div>
+        <button className="w-full py-2.5 rounded-lg bg-violet-DEFAULT text-white text-xs font-bold mono tracking-wider">CONFIRM &amp; LOCK IN</button>
+      </div>
+    </div>
+  );
+}
+
+function RubricMockup() {
+  const criteria = [
+    { label: 'JWT secret stored in env vars only', pts: 10, pass: true },
+    { label: 'Refresh token rotation implemented', pts: 20, pass: true },
+    { label: 'Rate limiting on /auth endpoints', pts: 15, pass: false },
+    { label: 'Bcrypt rounds ≥ 12', pts: 10, pass: true },
+    { label: 'Auth errors return 401, not 403', pts: 10, pass: false },
+  ];
+  return (
+    <div className="rounded-xl bg-[#0d0d0d] border border-surface-border overflow-hidden text-sm">
+      <div className="px-4 py-3 border-b border-surface-border flex items-center justify-between">
+        <span className="mono text-xs text-zinc-500">Week 3 — Auth Task Rubric</span>
+        <span className="mono text-xs text-red-400">65/100 — FAIL</span>
+      </div>
+      <div className="p-4 space-y-2">
+        {criteria.map((c, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-raised">
+            <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${c.pass ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
+              {c.pass
+                ? <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 4L3 6L7 2" stroke="#34d399" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                : <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1.5 1.5L6.5 6.5M6.5 1.5L1.5 6.5" stroke="#f87171" strokeWidth="1.2" strokeLinecap="round"/></svg>
+              }
+            </div>
+            <span className={`flex-1 text-xs ${c.pass ? 'text-zinc-400' : 'text-red-400'}`}>{c.label}</span>
+            <span className="mono text-xs text-zinc-600">{c.pass ? `+${c.pts}` : `+0/${c.pts}`}</span>
+          </div>
+        ))}
+      </div>
+      <div className="px-4 pb-4">
+        <div className="p-3 rounded-lg bg-red-500/6 border border-red-500/15 text-xs text-red-400/90 leading-relaxed">
+          <strong>Verdict: Fail.</strong> Resubmit with rate limiting and proper error codes. You have 24 hours before your contact is notified.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GradingMockup() {
+  return (
+    <div className="rounded-xl bg-[#0d0d0d] border border-surface-border overflow-hidden text-sm">
+      <div className="px-4 py-3 border-b border-surface-border flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-emerald-400" style={{boxShadow:'0 0 6px rgba(52,211,153,0.6)'}}></div>
+        <span className="mono text-xs text-zinc-500">AI Grader — Week 3 Submission</span>
+      </div>
+      <div className="p-4">
+        <div className="rounded-lg bg-surface-raised border border-surface-border p-3 mb-4 font-mono text-xs text-zinc-400 leading-6 overflow-hidden">
+          <span className="text-zinc-600">// middleware/auth.js</span><br/>
+          <span className="text-violet-light">const</span> <span className="text-emerald-400">verifyToken</span> = (req, res, next) =&gt; {'{'}<br/>
+          {'  '}<span className="text-violet-light">const</span> token = req.headers[<span className="text-amber-400">'authorization'</span>];<br/>
+          {'  '}<span className="text-violet-light">if</span> (!token) <span className="text-violet-light">return</span> res.status(<span className="text-amber-400">401</span>)...<br/>
+          {'  '}jwt.verify(token, process.env.<span className="text-emerald-400">JWT_SECRET</span>, ...)<br/>
+          {'}'}
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2 text-xs text-emerald-400"><span>✓</span><span>JWT verification correct</span></div>
+          <div className="flex items-center gap-2 text-xs text-emerald-400"><span>✓</span><span>Secret from env vars</span></div>
+          <div className="flex items-center gap-2 text-xs text-red-400"><span>✗</span><span>Rate limiting not found on auth routes</span></div>
+          <div className="flex items-center gap-2 text-xs text-red-400"><span>✗</span><span>Error returns 403, expected 401</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmailMockup() {
+  return (
+    <div className="rounded-xl bg-[#0d0d0d] border border-surface-border overflow-hidden text-sm">
+      <div className="px-4 py-3 border-b border-surface-border">
+        <span className="mono text-xs text-zinc-500">Email Delivered — sarah.chen@company.com</span>
+      </div>
+      <div className="p-5 space-y-3">
+        <div className="rounded-lg bg-[#0f0f0f] border border-surface-border p-4">
+          <div className="border-b border-surface-border pb-3 mb-4 space-y-1.5">
+            <div className="flex items-center gap-2 text-xs"><span className="text-zinc-600 w-10">From</span><span className="text-zinc-400">accountability@rapture.ai</span></div>
+            <div className="flex items-center gap-2 text-xs"><span className="text-zinc-600 w-10">To</span><span className="text-zinc-400">sarah.chen@company.com</span></div>
+            <div className="flex items-center gap-2 text-xs"><span className="text-zinc-600 w-10">Sub</span><span className="text-red-400 font-semibold">Alex missed their Week 3 deadline</span></div>
+          </div>
+          <div className="text-xs text-zinc-400 leading-6 space-y-3">
+            <p>Hi Sarah,</p>
+            <p>You're receiving this because <span className="text-white font-semibold">Alex Johnson</span> designated you as their accountability contact on Rapture AI.</p>
+            <p><span className="text-white font-semibold">Alex has missed the Week 3 — Auth &amp; JWT deadline</span> by <span className="text-red-400 font-semibold">2 days</span>. The task has not been submitted.</p>
+            <p className="text-zinc-500 text-xs">No action is required from you. This is an automated notification.</p>
+            <p className="text-zinc-600 text-xs">— Rapture AI Accountability System</p>
+          </div>
+        </div>
+        {/* Penalty notice */}
+        <div className="rounded-lg bg-[#0f0f0f] border border-surface-border p-4">
+          <div className="border-b border-surface-border pb-3 mb-4 space-y-1.5">
+            <div className="flex items-center gap-2 text-xs"><span className="text-zinc-600 w-10">From</span><span className="text-zinc-400">stakes@rapture.ai</span></div>
+            <div className="flex items-center gap-2 text-xs"><span className="text-zinc-600 w-10">To</span><span className="text-zinc-400">alex.johnson@dev.com</span></div>
+            <div className="flex items-center gap-2 text-xs"><span className="text-zinc-600 w-10">Sub</span><span className="text-amber-400 font-semibold">−$1.00 deducted from your refund balance</span></div>
+          </div>
+          <div className="text-xs text-zinc-400 leading-6 space-y-3">
+            <p>Alex, you missed the <span className="text-white font-semibold">Week 3 — Auth &amp; JWT</span> deadline.</p>
+            <div className="flex items-center justify-between bg-surface-raised rounded-lg px-3 py-2">
+              <span className="text-zinc-500">Refund balance</span>
+              <div className="flex items-center gap-2">
+                <span className="text-white font-bold mono">$5.00</span>
+                <span className="text-zinc-600">→</span>
+                <span className="text-red-400 font-bold mono">$4.00</span>
+              </div>
+            </div>
+            <p className="text-zinc-500">Post your failure on X or LinkedIn mentioning <span className="text-violet-DEFAULT">@RaptureAI</span> to recover this $1.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UnlockMockup() {
+  const [month, setMonth] = useState(1);
+  const [misses, setMisses] = useState(0);
+  const [recovered, setRecovered] = useState(0);
+  const refund = Math.max(0, 5 - misses + recovered);
+  const nextMonthCharge = Math.max(0, 10 - refund);
+  return (
+    <div className="rounded-xl bg-[#0d0d0d] border border-surface-border overflow-hidden text-sm">
+      <div className="px-4 py-3 border-b border-surface-border flex items-center justify-between">
+        <span className="mono text-xs text-zinc-500">Refund & Rollover Simulator</span>
+        <span className="mono text-xs text-violet-DEFAULT">Month {month}</span>
+      </div>
+      <div className="p-4 space-y-4">
+        {/* Refund meter */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <span className="mono text-xs text-zinc-500">REFUND BALANCE</span>
+            <span className={`mono text-sm font-bold ${refund > 3 ? 'text-emerald-400' : refund > 1 ? 'text-amber-400' : 'text-red-400'}`}>${refund}.00</span>
+          </div>
+          <div className="flex gap-1">
+            {[1,2,3,4,5].map(n => (
+              <div key={n} className={`flex-1 h-2 rounded-full transition-all duration-300 ${n <= refund ? (refund > 3 ? 'bg-emerald-500' : refund > 1 ? 'bg-amber-500' : 'bg-red-500') : 'bg-surface-muted'}`}></div>
+            ))}
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="mono text-[10px] text-zinc-600">$0</span>
+            <span className="mono text-[10px] text-zinc-600">$5 max refund</span>
+          </div>
+        </div>
+        {/* Controls */}
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => setMisses(m => Math.min(5, m+1))} disabled={misses >= 5}
+            className="py-2 rounded-lg bg-red-500/8 border border-red-500/20 text-red-400 text-xs font-semibold mono hover:bg-red-500/15 transition-colors disabled:opacity-30">
+            Miss deadline −$1
+          </button>
+          <button onClick={() => setRecovered(r => Math.min(misses, r+1))} disabled={recovered >= misses}
+            className="py-2 rounded-lg bg-violet-DEFAULT/8 border border-violet-DEFAULT/20 text-violet-DEFAULT text-xs font-semibold mono hover:bg-violet-DEFAULT/15 transition-colors disabled:opacity-30">
+            Post publicly +$1
+          </button>
+        </div>
+        {misses > 0 && (
+          <div className="p-2.5 rounded-lg bg-red-500/6 border border-red-500/15 text-xs text-red-400 mono">
+            {misses} miss{misses > 1 ? 'es' : ''} · {recovered} recovered · contact notified {misses}×
+          </div>
+        )}
+        {/* Next month */}
+        <div className="border-t border-surface-border pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="mono text-xs text-zinc-500">ROLL OVER TO MONTH {month + 1}</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => { setMonth(m => m+1); setMisses(0); setRecovered(0); }}
+              className="flex-1 py-2 rounded-lg bg-violet-DEFAULT/10 border border-violet-DEFAULT/25 text-violet-DEFAULT text-xs font-bold mono hover:bg-violet-DEFAULT/20 transition-colors">
+              Roll over ${refund} credit
+            </button>
+          </div>
+          {refund > 0 && (
+            <p className="mono text-[10px] text-zinc-500 mt-2 text-center">
+              Next month charge: <span className="text-white font-bold">${nextMonthCharge}.00</span>
+              {nextMonthCharge === 0 && <span className="text-emerald-400"> — FREE 🎉</span>}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const MOCKUP_COMPONENTS = { CurriculumMockup, ContactMockup, RubricMockup, GradingMockup, EmailMockup, UnlockMockup };
+
+function WalkthroughSection() {
+  return (
+    <section id="how-it-works" className="py-28 border-t border-surface-border bg-surface-DEFAULT/40">
+      <div className="max-w-6xl mx-auto px-6">
+        <FadeUp className="text-center mb-4">
+          <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest">HOW IT WORKS</span>
+        </FadeUp>
+        <FadeUp className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Six steps. No escape.</h2>
+        </FadeUp>
+        <div className="space-y-20">
+          {STEPS.map((step, i) => {
+            const MockupComp = MOCKUP_COMPONENTS[step.mockup];
+            return (
+              <FadeUp key={i} delay={1} className={`grid md:grid-cols-2 gap-10 items-center ${i % 2 === 1 ? 'md:[&>*:first-child]:order-2' : ''}`}>
+                <div>
+                  <div className="flex items-center gap-4 mb-5">
+                    <span className="mono text-5xl font-black text-surface-border leading-none select-none">{step.n}</span>
+                    <div>
+                      <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest block mb-1">{step.badge}</span>
+                      <h3 className="text-xl font-bold text-white">{step.title}</h3>
+                    </div>
+                  </div>
+                  <p className="text-zinc-400 leading-relaxed text-base">{step.sub}</p>
+                </div>
+                <div>
+                  <MockupComp />
+                </div>
+              </FadeUp>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Features Grid ────────────────────────────────────────────── */
+const FEATURES = [
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="3" y="9" width="16" height="12" rx="3" stroke="#a078ff" strokeWidth="1.5"/>
+        <path d="M7 9V6a4 4 0 018 0v3" stroke="#a078ff" strokeWidth="1.5"/>
+        <circle cx="11" cy="15" r="2" fill="#a078ff" fillOpacity="0.5"/>
+      </svg>
+    ),
+    title: 'Hard Task Locks',
+    sub: 'Week N+1 is inaccessible until Week N is graded as passing. No exceptions, no back doors, no skipping the hard stuff.',
+    detail: ['Sequential module access only', 'AI grading required to unlock', 'Bypass attempts logged', 'Lock persists across devices'],
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="2" y="5" width="18" height="13" rx="2" stroke="#a078ff" strokeWidth="1.5"/>
+        <path d="M2 9h18" stroke="#a078ff" strokeWidth="1.5"/>
+        <path d="M6 13h4M6 16h6" stroke="#a078ff" strokeWidth="1.2" strokeLinecap="round"/>
+        <circle cx="17" cy="6" r="3" fill="#f87171" stroke="#0a0a0a" strokeWidth="1.5"/>
+      </svg>
+    ),
+    title: 'Accountability Emails',
+    sub: 'Miss a deadline and your designated contact gets an automated email the next morning. No hiding. No explaining it away later.',
+    detail: ['Sent at 9AM day after deadline', 'Includes task name + days late', 'Second contact on 4th miss', 'Contact opt-in consent required'],
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="3" y="2" width="16" height="18" rx="2" stroke="#a078ff" strokeWidth="1.5"/>
+        <path d="M7 7h8M7 11h8M7 15h5" stroke="#a078ff" strokeWidth="1.2" strokeLinecap="round"/>
+        <path d="M14 14l2 2 4-4" stroke="#34d399" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    title: 'Locked Rubric Grading',
+    sub: 'Submissions graded against fixed criteria set before the task begins. No partial credit for effort. The rubric is the law.',
+    detail: ['Criteria defined at lock time', 'Weighted point scoring', 'Code quality checks included', 'Retry limit enforced'],
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="11" r="9" stroke="#a078ff" strokeWidth="1.5"/>
+        <path d="M11 6v5l3 3" stroke="#a078ff" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M6 17l-3 3" stroke="#f87171" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    ),
+    title: 'Financial Stake System',
+    sub: '$10/month. Up to $5 back if you perform. Miss a deadline — lose $1 from your refund. Five misses and the full $5 is gone.',
+    detail: ['$5 refund balance per cycle', '−$1 per missed deadline', 'Floor at $0 — no overage', 'Cash out or roll to next month'],
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M4 4l14 14M18 4L4 18" stroke="none"/>
+        <rect x="2" y="8" width="18" height="11" rx="2" stroke="#a078ff" strokeWidth="1.5"/>
+        <path d="M7 3h8M11 3v5" stroke="#a078ff" strokeWidth="1.2" strokeLinecap="round"/>
+        <path d="M6 13h4M6 16h7" stroke="#a078ff" strokeWidth="1" strokeLinecap="round"/>
+        <circle cx="17" cy="7" r="3.5" fill="#a078ff"/>
+        <path d="M15.5 7l1 1 2-2" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    title: 'Social Recovery',
+    sub: 'Miss a deadline and lose $1? Post your failure publicly on X or LinkedIn mentioning Rapture AI — and we give it back. Own it.',
+    detail: ['Draft post template provided', 'URL verified by platform', 'One recovery per missed task', '72-hour window to claim'],
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M3 11h16M11 3l8 8-8 8" stroke="#a078ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="6" cy="11" r="2" fill="#a078ff" fillOpacity="0.4"/>
+      </svg>
+    ),
+    title: 'Credit Rollover',
+    sub: 'Don\'t cash out — roll your refund into next month\'s bill. Two back-to-back perfect months and the platform effectively costs nothing.',
+    detail: ['Roll over any remaining balance', 'Applied to next invoice', 'Stack up to $20 in credit', 'Consistent users pay near $0'],
+  },
+];
+
+function FeaturesSection() {
+  return (
+    <section id="features" className="py-28 border-t border-surface-border">
+      <div className="max-w-6xl mx-auto px-6">
+        <FadeUp className="text-center mb-4">
+          <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest">CORE FEATURES</span>
+        </FadeUp>
+        <FadeUp className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Built for people who can't<br/><span className="text-violet-DEFAULT">trust themselves to finish.</span></h2>
+        </FadeUp>
+        <div className="grid md:grid-cols-3 gap-5">
+          {FEATURES.map((f, i) => (
+            <FadeUp key={i} delay={(i % 3) + 1} className="feature-card gradient-border rounded-2xl bg-surface-DEFAULT border border-surface-border p-6">
+              <div className="card-icon w-10 h-10 rounded-xl bg-violet-DEFAULT/8 border border-violet-DEFAULT/20 flex items-center justify-center mb-5 transition-all duration-300">
+                {f.icon}
+              </div>
+              <h3 className="text-white font-bold text-lg mb-2">{f.title}</h3>
+              <p className="text-zinc-500 text-sm leading-relaxed mb-5">{f.sub}</p>
+              <ul className="space-y-2">
+                {f.detail.map((d, j) => (
+                  <li key={j} className="flex items-center gap-2 text-xs text-zinc-500">
+                    <span className="w-1 h-1 rounded-full bg-violet-DEFAULT flex-shrink-0"></span>
+                    {d}
+                  </li>
+                ))}
+              </ul>
+            </FadeUp>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Who This Is For ──────────────────────────────────────────── */
+const WHO_BULLETS = [
+  { emoji: '🎯', bold: 'Junior devs job-hunting', rest: ' who need a portfolio project and a deadline to ship it.' },
+  { emoji: '🔄', bold: 'Career-switchers', rest: ' who have started 5 courses and finished 0.' },
+  { emoji: '💼', bold: 'Self-taught engineers', rest: ' who lack a structured path to fill gaps in their skillset.' },
+  { emoji: '📈', bold: 'Mid-level engineers', rest: ' leveling up for senior roles who procrastinate on the hard stuff.' },
+  { emoji: '⏰', bold: 'Busy developers', rest: ' who need external pressure to prioritize learning.' },
+  { emoji: '🧠', bold: 'Anyone who knows what to learn', rest: ' but needs consequences to actually do it.' },
+];
+
+function WhoSection() {
+  return (
+    <section id="who" className="py-28 border-t border-surface-border bg-surface-DEFAULT/40">
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="grid md:grid-cols-2 gap-16 items-center">
+          <div>
+            <FadeUp>
+              <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest block mb-4">WHO THIS IS FOR</span>
+            </FadeUp>
+            <FadeUp delay={1}>
+              <h2 className="text-4xl font-black text-white leading-tight mb-6">If excuses are<br/>costing you jobs,<br/>this is for you.</h2>
+            </FadeUp>
+            <FadeUp delay={2}>
+              <p className="text-zinc-400 leading-relaxed">Rapture AI isn't gentle. It's not a motivational platform. It's a forcing function for developers who understand the stakes but still can't get themselves to execute.</p>
+            </FadeUp>
+          </div>
+          <div className="space-y-4">
+            {WHO_BULLETS.map((b, i) => (
+              <FadeUp key={i} delay={i + 1}>
+                <div className="flex items-start gap-4 p-4 rounded-xl bg-surface-DEFAULT border border-surface-border hover:border-violet-DEFAULT/30 transition-colors">
+                  <span className="text-xl flex-shrink-0">{b.emoji}</span>
+                  <p className="text-sm leading-relaxed"><span className="text-white font-semibold">{b.bold}</span><span className="text-zinc-400">{b.rest}</span></p>
+                </div>
+              </FadeUp>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Waitlist Form ────────────────────────────────────────────── */
+function WaitlistSection() {
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '' });
+  const [status, setStatus] = useState('idle'); // idle | loading | success | error409 | error
+  const [shake, setShake] = useState(false);
+
+  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setStatus('loading');
+    try {
+      const backendUrl = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_BACKEND_URL) || '';
+      const res = await fetch(`${backendUrl}/api/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        setStatus('success');
+      } else if (res.status === 409) {
+        setStatus('error409');
+        setShake(true);
+        setTimeout(() => setShake(false), 600);
+      } else {
+        setStatus('error');
+      }
+    } catch {
+      // Demo mode: simulate success
+      setTimeout(() => setStatus('success'), 1200);
+    }
+  };
+
+  return (
+    <section id="waitlist" className="py-28 border-t border-surface-border relative overflow-hidden">
+      {/* BG glow */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 100%, rgba(160,120,255,0.07) 0%, transparent 70%)' }} />
+      <div className="relative max-w-2xl mx-auto px-6 text-center">
+        <FadeUp>
+          <span className="mono text-xs font-semibold text-violet-DEFAULT tracking-widest block mb-4">EARLY ACCESS</span>
+        </FadeUp>
+        <FadeUp delay={1}>
+          <h2 className="text-4xl md:text-5xl font-black text-white leading-tight mb-4">Stop planning.<br/>Start finishing.</h2>
+        </FadeUp>
+        <FadeUp delay={2}>
+          <p className="text-zinc-400 text-lg mb-12">Join the waitlist. We're onboarding the first cohort manually to ensure every engineer gets set up right.</p>
+        </FadeUp>
+
+        {status === 'success' ? (
+          <FadeUp className="rounded-2xl bg-emerald-500/6 border border-emerald-500/30 p-10">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto mb-5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 12L9 18L21 6" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">You're on the list.</h3>
+            <p className="text-zinc-400 text-sm">We'll reach out when your spot opens. Prepare to be held accountable.</p>
+          </FadeUp>
+        ) : (
+          <FadeUp delay={3} className={`rounded-2xl bg-surface-DEFAULT border border-surface-border p-8 ${shake ? 'shake' : ''}`}>
+            {status === 'error409' && (
+              <div className="mb-5 p-3 rounded-lg bg-amber-500/8 border border-amber-500/25 text-sm text-amber-400">
+                <strong>Already registered.</strong> This email is already on the waitlist.
+              </div>
+            )}
+            {status === 'error' && (
+              <div className="mb-5 p-3 rounded-lg bg-red-500/8 border border-red-500/25 text-sm text-red-400">
+                Something went wrong. Please try again.
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="text-left">
+                  <label className="mono text-xs text-zinc-500 block mb-2">FIRST NAME</label>
+                  <input
+                    name="firstName" type="text" required placeholder="Alex"
+                    value={form.firstName} onChange={handleChange}
+                    className="form-input w-full px-4 py-3 rounded-xl bg-surface-raised border border-surface-border text-white text-sm placeholder-zinc-600 transition-all duration-200"
+                  />
+                </div>
+                <div className="text-left">
+                  <label className="mono text-xs text-zinc-500 block mb-2">LAST NAME</label>
+                  <input
+                    name="lastName" type="text" required placeholder="Johnson"
+                    value={form.lastName} onChange={handleChange}
+                    className="form-input w-full px-4 py-3 rounded-xl bg-surface-raised border border-surface-border text-white text-sm placeholder-zinc-600 transition-all duration-200"
+                  />
+                </div>
+              </div>
+              <div className="text-left">
+                <label className="mono text-xs text-zinc-500 block mb-2">EMAIL ADDRESS</label>
+                <input
+                  name="email" type="email" required placeholder="alex@company.com"
+                  value={form.email} onChange={handleChange}
+                  className="form-input w-full px-4 py-3 rounded-xl bg-surface-raised border border-surface-border text-white text-sm placeholder-zinc-600 transition-all duration-200"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={status === 'loading'}
+                className="btn-primary w-full py-4 rounded-xl bg-violet-DEFAULT text-white font-bold text-base violet-glow disabled:opacity-60 disabled:cursor-not-allowed mt-2 flex items-center justify-center gap-3"
+              >
+                {status === 'loading' ? (
+                  <>
+                    <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round"/></svg>
+                    Submitting...
+                  </>
+                ) : 'Request Early Access →'}
+              </button>
+            </form>
+            <p className="text-xs text-zinc-600 mt-5">By joining you agree to receive product updates. No spam. Unsubscribe anytime.</p>
+          </FadeUp>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ── Footer ───────────────────────────────────────────────────── */
+function Footer() {
+  return (
+    <footer className="border-t border-surface-border py-10">
+      <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded bg-violet-DEFAULT flex items-center justify-center">
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" fill="white" fillOpacity="0.9"/></svg>
+          </div>
+          <span className="font-bold text-white text-sm">Rapture<span className="text-violet-DEFAULT">AI</span></span>
+        </div>
+        <p className="text-xs text-zinc-600 mono">© 2025 Rapture AI. All rights reserved.</p>
+        <div className="flex gap-6 text-xs text-zinc-600">
+          <a href="#" className="hover:text-zinc-400 transition-colors">Privacy</a>
+          <a href="#" className="hover:text-zinc-400 transition-colors">Terms</a>
+          <a href="mailto:hello@rapture.ai" className="hover:text-zinc-400 transition-colors">Contact</a>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+/* ── App ──────────────────────────────────────────────────────── */
+function App() {
+  const scrollToWaitlist = () => {
+    const el = document.getElementById('waitlist');
+    if (el) { window.scrollTo({ top: el.offsetTop - 80, behavior: 'smooth' }); }
+  };
+
+  // Register tweaks
+  useEffect(() => {
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode') document.getElementById('tweaks-panel')?.classList.remove('hidden');
+      if (e.data?.type === '__deactivate_edit_mode') document.getElementById('tweaks-panel')?.classList.add('hidden');
+    });
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+  }, []);
+
+  return (
+    <div>
+      <Navbar onWaitlist={scrollToWaitlist} />
+      <Hero onWaitlist={scrollToWaitlist} />
+      <Ticker />
+      <ProblemSection />
+      <FinancialStakeSection />
+      <WalkthroughSection />
+      <FeaturesSection />
+      <WhoSection />
+      <WaitlistSection />
+      <Footer />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -3,123 +3,551 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 
+// ─── Constants ───────────────────────────────────────────────
+const V = '#a078ff'
+const V_FAINT = 'rgba(160,120,255,0.08)'
+const BG = '#0a0a0a'
+const SURFACE = '#111111'
+const SURFACE_R = '#161616'
+const BORDER = '#1e1e1e'
+
 type FormState = 'idle' | 'loading' | 'success' | 'error' | 'duplicate'
 
-// Reusable scroll-triggered fade+slide up
-function FadeUp({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+// ─── FadeUp ──────────────────────────────────────────────────
+function FadeUp({ children, delay = 0, className = '', style }: { children: React.ReactNode; delay?: number; className?: string; style?: React.CSSProperties }) {
   const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: '-80px' })
+  const inView = useInView(ref, { once: true, margin: '-80px' })
   return (
-    <motion.div
-      ref={ref}
-      className={className}
-      initial={{ opacity: 0, y: 40 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
+    <motion.div ref={ref} className={className} style={style}
+      initial={{ opacity: 0, y: 32 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.65, delay: delay * 0.12, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </motion.div>
   )
 }
 
-// Staggered children wrapper
-function StaggerParent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: '-80px' })
-  return (
-    <motion.div
-      ref={ref}
-      className={className}
-      initial="hidden"
-      animate={isInView ? 'visible' : 'hidden'}
-      variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-    >
-      {children}
-    </motion.div>
-  )
-}
+// ─── Typing Hero ─────────────────────────────────────────────
+const FULL_TEXT = "You've started 6 courses this year.\nYou finished 0.\nRapture AI makes quitting impossible."
 
-function StaggerChild({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <motion.div
-      className={className}
-      variants={{
-        hidden: { opacity: 0, y: 30 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
-      }}
-    >
-      {children}
-    </motion.div>
-  )
-}
-
-// Typing headline
-function TypingText({ text, className = '' }: { text: string; className?: string }) {
+function TypingHero() {
   const [displayed, setDisplayed] = useState('')
   const [done, setDone] = useState(false)
 
   useEffect(() => {
     let i = 0
-    const interval = setInterval(() => {
-      setDisplayed(text.slice(0, i + 1))
-      i++
-      if (i >= text.length) {
-        clearInterval(interval)
-        setDone(true)
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+    function type() {
+      if (i <= FULL_TEXT.length) {
+        setDisplayed(FULL_TEXT.slice(0, i))
+        if (i === FULL_TEXT.length) setDone(true)
+        i++
+        const delay = FULL_TEXT[i] === '\n' ? 320 : Math.random() * 30 + 22
+        timeouts.push(setTimeout(type, delay))
       }
-    }, 40)
-    return () => clearInterval(interval)
-  }, [text])
+    }
+    const start = setTimeout(type, 500)
+    return () => { clearTimeout(start); timeouts.forEach(clearTimeout) }
+  }, [])
 
+  const lines = displayed.split('\n')
   return (
-    <span className={className}>
-      {displayed}
-      {!done && <span className="animate-pulse">|</span>}
-    </span>
+    <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-[1.08] tracking-tight text-white">
+      {lines.map((line, i) => (
+        <span key={i} className="block">
+          {i === 2
+            ? line.split('Rapture AI').map((part, j) =>
+                j === 0
+                  ? <span key={j}>{part}</span>
+                  : <span key={j}><span style={{ color: V }} className="violet-glow-text">Rapture AI</span>{part}</span>
+              )
+            : <span style={i === 1 ? { color: '#71717a' } : {}}>{line}</span>
+          }
+          {i === lines.length - 1 && !done && <span className="cursor-blink" />}
+        </span>
+      ))}
+      {done && <span className="cursor-blink" />}
+    </h1>
   )
 }
 
-// Animated AI feedback panel
-function AIFeedbackPanel() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: '-80px' })
-  const [feedback, setFeedback] = useState('')
-  const fullFeedback = '"Correct implementation. Middleware properly rejects expired tokens. Consider adding rate limiting before production."'
-
-  useEffect(() => {
-    if (!isInView) return
-    let i = 0
-    const delay = setTimeout(() => {
-      const interval = setInterval(() => {
-        setFeedback(fullFeedback.slice(0, i + 1))
-        i++
-        if (i >= fullFeedback.length) clearInterval(interval)
-      }, 18)
-      return () => clearInterval(interval)
-    }, 800)
-    return () => clearTimeout(delay)
-  }, [isInView])
-
+// ─── Hero Mockup ─────────────────────────────────────────────
+function HeroMockup() {
+  const tasks = [
+    { label: 'Week 1 — Setup & Architecture', done: true },
+    { label: 'Week 2 — REST API Foundations', done: true },
+    { label: 'Week 3 — Auth & JWT', done: false, active: true },
+    { label: 'Week 4 — Database Design', done: false, locked: true },
+    { label: 'Week 5 — Testing & CI', done: false, locked: true },
+    { label: 'Week 6 — Performance', done: false, locked: true },
+  ]
   return (
-    <div ref={ref} className="p-4 rounded-lg border border-dashed border-white/10" style={{ backgroundColor: '#0d0e0f' }}>
-      <div className="mb-1 font-mono text-xs" style={{ color: 'rgba(149,142,160,0.5)' }}>// AI Feedback</div>
-      <div className="italic font-mono text-xs" style={{ color: '#cbc3d7' }}>
-        {feedback}
-        {feedback.length < fullFeedback.length && isInView && <span className="animate-pulse">|</span>}
+    <div className="gradient-border rounded-2xl violet-glow" style={{ background: SURFACE, padding: 1 }}>
+      <div className="rounded-xl overflow-hidden" style={{ background: '#0d0d0d' }}>
+        <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: BORDER }}>
+          <div className="w-3 h-3 rounded-full" style={{ background: 'rgba(239,68,68,0.6)' }} />
+          <div className="w-3 h-3 rounded-full" style={{ background: 'rgba(234,179,8,0.6)' }} />
+          <div className="w-3 h-3 rounded-full" style={{ background: 'rgba(34,197,94,0.6)' }} />
+          <span className="mono text-xs ml-3" style={{ color: '#52525b' }}>rapture.ai — curriculum</span>
+        </div>
+        <div className="px-5 py-4 border-b" style={{ borderColor: BORDER }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="mono text-xs mb-1" style={{ color: '#52525b' }}>ACTIVE TRACK</p>
+              <h3 className="text-white font-bold text-sm">Full-Stack Engineer Path</h3>
+            </div>
+            <span className="mono text-xs px-2 py-1 rounded-md" style={{ background: V_FAINT, color: V, border: `1px solid rgba(160,120,255,0.2)` }}>8 weeks</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 rounded-full" style={{ background: '#2a2a2a' }}>
+              <div className="h-full rounded-full" style={{ width: '33%', background: `linear-gradient(to right, ${V}, #c4a4ff)` }} />
+            </div>
+            <span className="mono text-xs" style={{ color: '#52525b' }}>2/6 done</span>
+          </div>
+        </div>
+        <div className="p-4 space-y-2">
+          {tasks.map((task, i) => (
+            <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg ${task.active ? '' : ''}`}
+              style={task.active ? { background: V_FAINT, border: `1px solid rgba(160,120,255,0.2)` } : task.locked ? { opacity: 0.4 } : {}}>
+              <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+                style={task.done ? { background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.4)' }
+                  : task.active ? { border: `1px solid rgba(160,120,255,0.6)` }
+                  : { border: `1px solid ${BORDER}` }}>
+                {task.done
+                  ? <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  : (task as any).locked
+                  ? <svg width="8" height="10" viewBox="0 0 8 10" fill="none"><rect x="1" y="4" width="6" height="5" rx="1" fill="#555" /><path d="M2.5 4V2.5a1.5 1.5 0 013 0V4" stroke="#555" strokeWidth="1.2" /></svg>
+                  : <div className="w-1.5 h-1.5 rounded-full" style={{ background: V }} />}
+              </div>
+              <span className="text-xs font-medium" style={task.done ? { color: '#52525b', textDecoration: 'line-through' } : task.active ? { color: 'white' } : { color: '#52525b' }}>{task.label}</span>
+              {(task as any).locked && <span className="ml-auto mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#3f3f46', background: SURFACE_R }}>LOCKED</span>}
+              {task.active && <span className="ml-auto mono text-[10px] px-1.5 py-0.5 rounded" style={{ color: V, background: V_FAINT, border: `1px solid rgba(160,120,255,0.2)` }}>DUE FRI</span>}
+            </div>
+          ))}
+        </div>
+        <div className="mx-4 mb-4 p-3 rounded-lg flex items-start gap-2.5" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="mt-0.5 flex-shrink-0"><path d="M7 1L13 12H1L7 1Z" stroke="#f87171" strokeWidth="1.2" strokeLinejoin="round" /><path d="M7 5V8" stroke="#f87171" strokeWidth="1.2" strokeLinecap="round" /><circle cx="7" cy="10.5" r="0.6" fill="#f87171" /></svg>
+          <p className="text-xs leading-relaxed" style={{ color: 'rgba(248,113,113,0.9)' }}><span className="font-semibold">Deadline in 2 days.</span> Miss it and your contact gets notified.</p>
+        </div>
       </div>
     </div>
   )
 }
 
-export default function Home() {
+// ─── Navbar ──────────────────────────────────────────────────
+function Navbar({ onWaitlist }: { onWaitlist: () => void }) {
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const h = () => setScrolled(window.scrollY > 20)
+    window.addEventListener('scroll', h)
+    return () => window.removeEventListener('scroll', h)
+  }, [])
+  return (
+    <motion.nav initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+      style={scrolled ? { background: 'rgba(10,10,10,0.9)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${BORDER}` } : {}}>
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-md flex items-center justify-center violet-glow-sm" style={{ background: V }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" fill="white" fillOpacity="0.9" />
+              <path d="M7 4L10 5.75V9.25L7 11L4 9.25V5.75L7 4Z" fill="#0a0a0a" fillOpacity="0.6" />
+            </svg>
+          </div>
+          <span className="font-bold text-white tracking-tight text-lg">Rapture<span style={{ color: V }}>AI</span></span>
+          <div className="hidden md:flex items-center gap-8 ml-6">
+            {[['#problem', 'Problem'], ['#how-it-works', 'How It Works'], ['#stakes', 'Stakes'], ['#who', "Who It's For"]].map(([href, label]) => (
+              <a key={href} href={href} className="text-sm transition-colors" style={{ color: '#71717a' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#71717a')}>{label}</a>
+            ))}
+          </div>
+        </div>
+        <button onClick={onWaitlist} className="btn-primary text-white text-sm font-semibold px-4 py-2 rounded-lg" style={{ background: V }}>
+          Join Waitlist
+        </button>
+      </div>
+    </motion.nav>
+  )
+}
+
+// ─── Ticker ──────────────────────────────────────────────────
+const TICKER_ITEMS = ['HARD TASK LOCKS', 'AI RUBRIC GRADING', 'ACCOUNTABILITY EMAILS', 'LOCKED CURRICULUM', 'SOCIAL RECOVERY', 'MISS A DEADLINE → THEY FIND OUT', 'NO SKIPPING', 'REAL STAKES', 'SEQUENTIAL TASKS ONLY', 'BUILT IN PUBLIC']
+
+function Ticker() {
+  const items = [...TICKER_ITEMS, ...TICKER_ITEMS]
+  return (
+    <div className="overflow-hidden border-y py-3" style={{ borderColor: BORDER, background: SURFACE }}>
+      <div className="ticker-inner">
+        {items.map((item, i) => (
+          <span key={i} className="mono text-xs font-semibold tracking-widest px-8 whitespace-nowrap" style={{ color: V }}>
+            {item} <span style={{ color: '#3f3f46', margin: '0 8px' }}>◆</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Problem Section ─────────────────────────────────────────
+function ProblemSection() {
+  const without = [
+    { e: '📖', title: 'Open course. Watch 3 videos.', sub: "Close tab. Tell yourself you'll pick it up tomorrow." },
+    { e: '⏭', title: 'Skip any module, any time.', sub: 'Jump to the fun parts. Miss the fundamentals. Build on sand.' },
+    { e: '📊', title: 'Self-reported progress.', sub: '"I basically finished it." You\'ve watched 12% and paused for 6 weeks.' },
+    { e: '🤷', title: 'Zero accountability.', sub: "Nobody knows you quit. So quitting costs nothing." },
+  ]
+  const withRapture = [
+    { e: '🔒', title: 'Modules unlock only when earned.', sub: "Can't skip Week 3 until the AI grades your Week 2 project as passing." },
+    { e: '📋', title: 'AI-graded tasks with rubrics.', sub: 'Every deliverable is scored against strict criteria. Partial credit denied.' },
+    { e: '📧', title: 'Real accountability emails.', sub: 'Miss a deadline and your contact gets an email. No hiding.' },
+    { e: '⏱', title: 'Hard deadlines, not suggestions.', sub: "Deadlines are enforced. The curriculum doesn't wait for you." },
+  ]
+  const chartBg = (vals: number[], color: string) => (
+    <div className="flex items-end gap-1.5 h-16">
+      {vals.map((v, i) => (
+        <div key={i} className="flex-1 rounded-sm" style={{ height: `${v}%`, background: color.replace('{o}', String(0.15 + i * 0.05)) }} />
+      ))}
+    </div>
+  )
+  return (
+    <section id="problem" className="py-28 border-t" style={{ borderColor: BORDER }}>
+      <div className="max-w-6xl mx-auto px-6">
+        <FadeUp className="text-center mb-4"><span className="mono text-xs font-semibold tracking-widest" style={{ color: V }}>THE PROBLEM</span></FadeUp>
+        <FadeUp className="text-center mb-6"><h2 className="text-4xl md:text-5xl font-black text-white leading-tight">The Judge &amp; The Defendant</h2></FadeUp>
+        <FadeUp className="text-center mb-16"><p className="text-lg max-w-xl mx-auto" style={{ color: '#71717a' }}>You know what you need to learn. You just never finish. Here's why — and how Rapture AI fixes it.</p></FadeUp>
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Without */}
+          <FadeUp delay={1} className="rounded-2xl overflow-hidden" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+            <div className="px-6 py-4 border-b flex items-center gap-3" style={{ borderColor: BORDER }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2L12 12M12 2L2 12" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              </div>
+              <h3 className="text-white font-bold">Without Rapture AI</h3>
+              <span className="ml-auto mono text-xs px-2 py-1 rounded" style={{ color: '#f87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>THE DEFENDANT</span>
+            </div>
+            <div className="p-6 space-y-4">
+              {without.map((item, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0" style={{ background: SURFACE_R, border: `1px solid ${BORDER}` }}>{item.e}</div>
+                  <div><p className="text-white text-sm font-semibold mb-0.5">{item.title}</p><p className="text-sm leading-relaxed" style={{ color: '#52525b' }}>{item.sub}</p></div>
+                </div>
+              ))}
+            </div>
+            <div className="mx-6 mb-6 p-4 rounded-xl" style={{ background: SURFACE_R, border: `1px solid ${BORDER}` }}>
+              <p className="mono text-xs mb-3" style={{ color: '#52525b' }}>COMPLETION RATE — SELF-DIRECTED</p>
+              {chartBg([100, 88, 71, 54, 38, 22, 14, 6], 'rgba(239,68,68,{o})')}
+              <div className="flex justify-between mt-2">
+                <span className="mono text-xs" style={{ color: '#3f3f46' }}>Day 1</span>
+                <span className="mono text-xs" style={{ color: '#f87171' }}>Day 56 → 6% finish</span>
+              </div>
+            </div>
+          </FadeUp>
+          {/* With */}
+          <FadeUp delay={2} className="rounded-2xl overflow-hidden violet-glow" style={{ background: SURFACE, border: `1px solid rgba(160,120,255,0.3)` }}>
+            <div className="px-6 py-4 border-b flex items-center gap-3" style={{ borderColor: 'rgba(160,120,255,0.2)' }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: V_FAINT, border: `1px solid rgba(160,120,255,0.3)` }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5.5 10.5L12 3.5" stroke={V} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </div>
+              <h3 className="text-white font-bold">With Rapture AI</h3>
+              <span className="ml-auto mono text-xs px-2 py-1 rounded" style={{ color: V, background: V_FAINT, border: `1px solid rgba(160,120,255,0.2)` }}>THE JUDGE</span>
+            </div>
+            <div className="p-6 space-y-4">
+              {withRapture.map((item, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0" style={{ background: V_FAINT, border: `1px solid rgba(160,120,255,0.2)` }}>{item.e}</div>
+                  <div><p className="text-white text-sm font-semibold mb-0.5">{item.title}</p><p className="text-sm leading-relaxed" style={{ color: '#52525b' }}>{item.sub}</p></div>
+                </div>
+              ))}
+            </div>
+            <div className="mx-6 mb-6 p-4 rounded-xl" style={{ background: SURFACE_R, border: `1px solid rgba(160,120,255,0.15)` }}>
+              <p className="mono text-xs mb-3" style={{ color: '#52525b' }}>COMPLETION RATE — RAPTURE AI</p>
+              {chartBg([100, 98, 95, 91, 88, 85, 82, 79], `rgba(160,120,255,{o})`)}
+              <div className="flex justify-between mt-2">
+                <span className="mono text-xs" style={{ color: '#3f3f46' }}>Day 1</span>
+                <span className="mono text-xs" style={{ color: V }}>Day 56 → 79% finish</span>
+              </div>
+            </div>
+          </FadeUp>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Stakes Section ───────────────────────────────────────────
+function StakesSection() {
+  return (
+    <section id="stakes" className="py-28 border-t relative overflow-hidden" style={{ borderColor: BORDER }}>
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 50%, rgba(160,120,255,0.05) 0%, transparent 70%)' }} />
+      <div className="relative max-w-6xl mx-auto px-6">
+        <FadeUp className="text-center mb-4"><span className="mono text-xs font-semibold tracking-widest" style={{ color: V }}>REAL ACCOUNTABILITY</span></FadeUp>
+        <FadeUp className="text-center mb-6"><h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Consequences that actually hurt.</h2></FadeUp>
+        <FadeUp className="text-center mb-16"><p className="text-lg max-w-2xl mx-auto" style={{ color: '#71717a' }}>Motivation fades. Loss aversion doesn't. Rapture AI makes missing a deadline genuinely costly — socially and financially. Details on exact amounts will be set at launch.</p></FadeUp>
+        <div className="grid md:grid-cols-3 gap-5 mb-12">
+          {[
+            { icon: '💰', title: 'Put something on the line', desc: 'Before you start, you stake a real amount. Hit every deadline and keep it. Miss one and you lose part of it. The platform decides nothing — you set the amount.', tag: 'FINANCIAL_STAKE: SET_BY_YOU' },
+            { icon: '📣', title: 'Social recovery', desc: "Miss a deadline and lose part of your stake? Post your failure publicly on LinkedIn or Twitter mentioning Rapture AI. We verify the post and give you back what you lost. Own it.", tag: 'RECOVERY: POST_PUBLICLY' },
+            { icon: '🔄', title: 'Roll over or cash out', desc: "At the end of your cycle, whatever stake you've preserved is yours. Cash it back out or roll it into next month's commitment. Consistent users effectively pay nothing.", tag: 'ROLLOVER: YOUR_CHOICE' },
+          ].map(({ icon, title, desc, tag }) => (
+            <FadeUp key={title} delay={1}>
+              <div className="feature-card gradient-border rounded-2xl p-6 h-full" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+                <div className="text-3xl mb-5">{icon}</div>
+                <h3 className="text-white font-bold text-lg mb-3">{title}</h3>
+                <p className="text-sm leading-relaxed mb-5" style={{ color: '#71717a' }}>{desc}</p>
+                <div className="mono text-[10px] p-2.5 rounded" style={{ color: V, background: V_FAINT }}>{tag}</div>
+              </div>
+            </FadeUp>
+          ))}
+        </div>
+        {/* Mockup */}
+        <FadeUp delay={2}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+            <div className="px-6 py-4 border-b flex items-center gap-3" style={{ borderColor: BORDER }}>
+              <div className="w-2 h-2 rounded-full" style={{ background: V, boxShadow: `0 0 6px ${V}` }} />
+              <span className="mono text-xs font-semibold tracking-wider" style={{ color: '#52525b' }}>HOW YOUR STAKE MOVES</span>
+            </div>
+            <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x" style={{ borderColor: BORDER }}>
+              {[
+                { label: 'You commit a stake', detail: 'Set before the curriculum locks. Your amount, your call.', icon: '💳', color: 'white' },
+                { label: 'Miss deadline → lose part', detail: 'Each missed deadline reduces your returnable stake. Contact is also notified automatically.', icon: '📉', color: '#f87171' },
+                { label: 'Post publicly → recover it', detail: 'Post your failure on social media. We verify it. You get the amount back. No hiding allowed.', icon: '📲', color: '#34d399' },
+              ].map(({ label, detail, icon, color }) => (
+                <div key={label} className="p-6 text-center">
+                  <div className="text-4xl mb-4">{icon}</div>
+                  <p className="font-bold mb-2" style={{ color }}>{label}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: '#52525b' }}>{detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </FadeUp>
+      </div>
+    </section>
+  )
+}
+
+// ─── Walkthrough Mockups ──────────────────────────────────────
+function CurriculumMockup() {
+  const [locked, setLocked] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [showConfirm, setShowConfirm] = useState(false)
+  const canLock = confirmText === 'LOCK MY CURRICULUM'
+  const tasks = [
+    { week: 'Week 1', title: 'Git workflow & project setup', deadline: 'May 5' },
+    { week: 'Week 2', title: 'REST API design in Node.js', deadline: 'May 12' },
+    { week: 'Week 3', title: 'Auth, JWT & middleware', deadline: 'May 19' },
+    { week: 'Week 4', title: 'PostgreSQL & Prisma ORM', deadline: 'May 26' },
+  ]
+  return (
+    <div className="rounded-xl overflow-hidden text-sm" style={{ background: '#0d0d0d', border: `1px solid ${BORDER}` }}>
+      <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: BORDER }}>
+        <span className="mono text-xs" style={{ color: '#52525b' }}>Curriculum Builder</span>
+        {locked
+          ? <span className="mono text-xs px-2 py-0.5 rounded" style={{ color: '#f87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>🔒 LOCKED</span>
+          : <span className="mono text-xs px-2 py-0.5 rounded" style={{ color: '#34d399', background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>✏ EDIT MODE</span>}
+      </div>
+      <div className="p-3 space-y-1.5">
+        {tasks.map((t, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: SURFACE_R, border: `1px solid ${BORDER}` }}>
+            <div className="w-4 h-4 rounded flex-shrink-0 flex items-center justify-center" style={{ background: V_FAINT, border: `1px solid rgba(160,120,255,0.3)` }}>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: V }} />
+            </div>
+            <span className="mono text-[10px] w-12 flex-shrink-0" style={{ color: '#3f3f46' }}>{t.week}</span>
+            <span className="flex-1 text-xs" style={{ color: locked ? '#52525b' : 'white' }}>{t.title}</span>
+            <span className="mono text-[10px]" style={{ color: '#3f3f46' }}>{t.deadline}</span>
+          </div>
+        ))}
+      </div>
+      {!locked && !showConfirm && (
+        <div className="px-3 pb-3">
+          <button onClick={() => setShowConfirm(true)} className="w-full py-2.5 rounded-lg mono text-xs font-bold tracking-wider transition-colors"
+            style={{ background: V_FAINT, border: `1px solid rgba(160,120,255,0.3)`, color: V }}>
+            LOCK CURRICULUM →
+          </button>
+        </div>
+      )}
+      {showConfirm && !locked && (
+        <div className="px-3 pb-3 space-y-2">
+          <p className="mono text-[10px] px-1" style={{ color: '#52525b' }}>Type <span style={{ color: V }}>LOCK MY CURRICULUM</span> to confirm. This cannot be undone.</p>
+          <input value={confirmText} onChange={e => setConfirmText(e.target.value)} placeholder="LOCK MY CURRICULUM"
+            className="w-full px-3 py-2 rounded-lg text-xs mono placeholder-zinc-700 focus:outline-none"
+            style={{ background: SURFACE_R, border: `1px solid ${BORDER}`, color: 'white' }} />
+          <button onClick={() => canLock && setLocked(true)} disabled={!canLock}
+            className="w-full py-2 rounded-lg text-xs font-bold mono tracking-wider transition-all"
+            style={canLock ? { background: 'rgba(239,68,68,0.8)', color: 'white' } : { background: SURFACE_R, color: '#3f3f46', cursor: 'not-allowed' }}>
+            {canLock ? '🔒 LOCK FOREVER' : 'TYPE TO UNLOCK BUTTON'}
+          </button>
+        </div>
+      )}
+      {locked && (
+        <div className="mx-3 mb-3 p-3 rounded-lg text-xs leading-relaxed" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: 'rgba(248,113,113,0.9)' }}>
+          <strong>Curriculum locked.</strong> No edits permitted. Deadline enforcement is now active.
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RubricMockup() {
+  const criteria = [
+    { label: 'JWT secret stored in env vars only', pts: 10, pass: true },
+    { label: 'Refresh token rotation implemented', pts: 20, pass: true },
+    { label: 'Rate limiting on /auth endpoints', pts: 15, pass: false },
+    { label: 'Bcrypt rounds ≥ 12', pts: 10, pass: true },
+    { label: 'Auth errors return 401, not 403', pts: 10, pass: false },
+  ]
+  return (
+    <div className="rounded-xl overflow-hidden text-sm" style={{ background: '#0d0d0d', border: `1px solid ${BORDER}` }}>
+      <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: BORDER }}>
+        <span className="mono text-xs" style={{ color: '#52525b' }}>Week 3 — Auth Task Rubric</span>
+        <span className="mono text-xs" style={{ color: '#f87171' }}>65/100 — FAIL</span>
+      </div>
+      <div className="p-4 space-y-2">
+        {criteria.map((c, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: SURFACE_R }}>
+            <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+              style={c.pass ? { background: 'rgba(34,197,94,0.2)' } : { background: 'rgba(239,68,68,0.2)' }}>
+              {c.pass
+                ? <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1 4L3 6L7 2" stroke="#34d399" strokeWidth="1.2" strokeLinecap="round" /></svg>
+                : <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1.5 1.5L6.5 6.5M6.5 1.5L1.5 6.5" stroke="#f87171" strokeWidth="1.2" strokeLinecap="round" /></svg>}
+            </div>
+            <span className="flex-1 text-xs" style={{ color: c.pass ? '#71717a' : '#f87171' }}>{c.label}</span>
+            <span className="mono text-xs" style={{ color: '#3f3f46' }}>{c.pass ? `+${c.pts}` : `+0/${c.pts}`}</span>
+          </div>
+        ))}
+      </div>
+      <div className="px-4 pb-4">
+        <div className="p-3 rounded-lg text-xs leading-relaxed" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: 'rgba(248,113,113,0.9)' }}>
+          <strong>Verdict: Fail.</strong> Resubmit with rate limiting and proper error codes. You have 24 hours.
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmailMockup() {
+  return (
+    <div className="rounded-xl overflow-hidden text-sm" style={{ background: '#0d0d0d', border: `1px solid ${BORDER}` }}>
+      <div className="px-4 py-3 border-b" style={{ borderColor: BORDER }}>
+        <span className="mono text-xs" style={{ color: '#52525b' }}>Email Delivered — accountability contact</span>
+      </div>
+      <div className="p-5 space-y-3">
+        <div className="rounded-lg p-4" style={{ background: '#0f0f0f', border: `1px solid ${BORDER}` }}>
+          <div className="border-b pb-3 mb-4 space-y-1.5" style={{ borderColor: BORDER }}>
+            <div className="flex items-center gap-2 text-xs"><span className="w-10" style={{ color: '#3f3f46' }}>From</span><span style={{ color: '#71717a' }}>accountability@rapture.ai</span></div>
+            <div className="flex items-center gap-2 text-xs"><span className="w-10" style={{ color: '#3f3f46' }}>To</span><span style={{ color: '#71717a' }}>sarah.chen@company.com</span></div>
+            <div className="flex items-center gap-2 text-xs"><span className="w-10" style={{ color: '#3f3f46' }}>Sub</span><span className="font-semibold" style={{ color: '#f87171' }}>Alex missed their Week 3 deadline</span></div>
+          </div>
+          <div className="text-xs leading-6 space-y-3" style={{ color: '#71717a' }}>
+            <p>Hi Sarah,</p>
+            <p>You&apos;re receiving this because <span className="text-white font-semibold">Alex Johnson</span> designated you as their accountability contact on Rapture AI.</p>
+            <p><span className="text-white font-semibold">Alex has missed the Week 3 — Auth &amp; JWT deadline</span> by <span className="font-semibold" style={{ color: '#f87171' }}>2 days</span>. The task has not been submitted.</p>
+            <p className="text-xs" style={{ color: '#52525b' }}>No action is required from you. This is an automated notification.</p>
+          </div>
+        </div>
+        <div className="p-3 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: 'rgba(248,113,113,0.9)' }}>
+          <strong>Stake penalty applied.</strong> Post publicly mentioning @RaptureAI to recover it within 72 hours.
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Walkthrough Section ──────────────────────────────────────
+const STEPS = [
+  { n: '01', badge: 'CURRICULUM BUILDER', title: 'Build your curriculum — then lock it forever', sub: "Design every task, milestone, and deadline to fit your goals. Use a template or start blank. Once you hit Lock, it's immutable — no editing, no goal-shifting, no lowering the bar when it gets hard.", Mockup: CurriculumMockup },
+  { n: '02', badge: 'AI GRADING', title: 'Every task has a locked rubric — pass or fail', sub: 'Each task comes with strict criteria defined at creation. The AI grades your submission against every point. No vague feedback. No partial credit for effort. Pass at 70+ or resubmit.', Mockup: RubricMockup },
+  { n: '03', badge: 'ACCOUNTABILITY + PENALTY', title: 'Miss a deadline — contact notified, stake reduced', sub: 'Your contact gets an email the next morning. And you lose part of your stake. Miss too many and you\'ve forfeited everything. The only recovery: post your failure publicly on social media. Own it.', Mockup: EmailMockup },
+]
+
+function WalkthroughSection() {
+  return (
+    <section id="how-it-works" className="py-28 border-t" style={{ borderColor: BORDER, background: 'rgba(17,17,17,0.4)' }}>
+      <div className="max-w-6xl mx-auto px-6">
+        <FadeUp className="text-center mb-4"><span className="mono text-xs font-semibold tracking-widest" style={{ color: V }}>HOW IT WORKS</span></FadeUp>
+        <FadeUp className="text-center mb-16"><h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Three steps. No escape.</h2></FadeUp>
+        <div className="space-y-20">
+          {STEPS.map(({ n, badge, title, sub, Mockup }, i) => (
+            <FadeUp key={n} delay={1} className={`grid md:grid-cols-2 gap-10 items-center`}>
+              <div className={i % 2 === 1 ? 'md:order-2' : ''}>
+                <div className="flex items-center gap-4 mb-5">
+                  <span className="mono font-black leading-none select-none" style={{ fontSize: 56, color: BORDER }}>{n}</span>
+                  <div>
+                    <span className="mono text-xs font-semibold tracking-widest block mb-1" style={{ color: V }}>{badge}</span>
+                    <h3 className="text-xl font-bold text-white">{title}</h3>
+                  </div>
+                </div>
+                <p className="leading-relaxed text-base" style={{ color: '#71717a' }}>{sub}</p>
+              </div>
+              <div className={i % 2 === 1 ? 'md:order-1' : ''}>
+                <Mockup />
+              </div>
+            </FadeUp>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Who Section ──────────────────────────────────────────────
+function WhoSection() {
+  const bullets = [
+    { e: '🎯', bold: 'Junior devs job-hunting', rest: ' who need a portfolio project and a deadline to ship it.' },
+    { e: '🔄', bold: 'Career-switchers', rest: ' who have started 5 courses and finished 0.' },
+    { e: '💼', bold: 'Self-taught engineers', rest: ' who lack a structured path to fill gaps in their skillset.' },
+    { e: '📈', bold: 'Mid-level engineers', rest: ' leveling up for senior roles who procrastinate on the hard stuff.' },
+    { e: '⏰', bold: 'Busy developers', rest: ' who need external pressure to prioritize learning.' },
+    { e: '🧠', bold: 'Anyone who knows what to learn', rest: ' but needs real consequences to actually do it.' },
+  ]
+  return (
+    <section id="who" className="py-28 border-t" style={{ borderColor: BORDER, background: 'rgba(17,17,17,0.4)' }}>
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="grid md:grid-cols-2 gap-16 items-center">
+          <div>
+            <FadeUp><span className="mono text-xs font-semibold tracking-widest block mb-4" style={{ color: V }}>WHO THIS IS FOR</span></FadeUp>
+            <FadeUp delay={1}><h2 className="text-4xl font-black text-white leading-tight mb-6">If excuses are costing you jobs, this is for you.</h2></FadeUp>
+            <FadeUp delay={2}><p className="leading-relaxed" style={{ color: '#71717a' }}>Rapture AI isn&apos;t gentle. It&apos;s not a motivational platform. It&apos;s a forcing function for developers who understand the stakes but still can&apos;t get themselves to execute.</p></FadeUp>
+          </div>
+          <div className="space-y-3">
+            {bullets.map((b, i) => (
+              <FadeUp key={i} delay={i + 1}>
+                <div className="flex items-start gap-4 p-4 rounded-xl transition-colors" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(160,120,255,0.3)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = BORDER }}>
+                  <span className="text-xl flex-shrink-0">{b.e}</span>
+                  <p className="text-sm leading-relaxed"><span className="text-white font-semibold">{b.bold}</span><span style={{ color: '#71717a' }}>{b.rest}</span></p>
+                </div>
+              </FadeUp>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Waitlist Section ─────────────────────────────────────────
+function WaitlistSection() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '' })
   const [state, setState] = useState<FormState>('idle')
+  const [count, setCount] = useState<number | null>(null)
+  const [shake, setShake] = useState(false)
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/waitlist/count`)
+      .then(r => r.json())
+      .then(d => setCount(d.count))
+      .catch(() => {})
+  }, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setState('loading')
     const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/waitlist`, {
@@ -129,9 +557,12 @@ export default function Home() {
     })
     if (res.ok) {
       setState('success')
+      setCount(c => (c ?? 0) + 1)
       setForm({ firstName: '', lastName: '', email: '' })
     } else if (res.status === 409) {
       setState('duplicate')
+      setShake(true)
+      setTimeout(() => setShake(false), 600)
     } else {
       setState('error')
     }
@@ -140,398 +571,162 @@ export default function Home() {
   const isDisabled = state === 'loading' || state === 'success'
 
   return (
-    <main className="relative min-h-screen" style={{ backgroundColor: '#0a0a0a', color: '#e3e2e3' }}>
-
-      {/* Nav */}
-      <motion.nav
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="sticky top-0 z-50 flex items-center justify-between px-8 h-16 border-b border-white/5 shadow-2xl shadow-black/40"
-        style={{ backgroundColor: 'rgba(18,19,21,0.7)', backdropFilter: 'blur(24px)' }}
-      >
-        <div className="flex items-center gap-4">
-          <div className="font-mono text-lg font-bold tracking-tighter text-violet-400">Rapture AI</div>
-          <div className="hidden md:flex gap-6 ml-8">
-            <a className="font-mono text-[0.6875rem] text-violet-400 uppercase tracking-widest" href="#methodology">Methodology</a>
-            <a className="font-mono text-[0.6875rem] text-gray-400 hover:text-white transition-colors uppercase tracking-widest" href="#stakes">Stakes</a>
-            <a className="font-mono text-[0.6875rem] text-gray-400 hover:text-white transition-colors uppercase tracking-widest" href="#waitlist">Early Access</a>
-          </div>
-        </div>
-        <a href="#waitlist"
-          className="px-4 py-1.5 border border-violet-500/30 rounded font-mono text-[10px] uppercase tracking-wider transition-all text-violet-300 hover:bg-violet-500/10">
-          Join Waitlist
-        </a>
-      </motion.nav>
-
-      {/* Hero */}
-      <section className="max-w-7xl mx-auto px-8 pt-32 pb-32 text-center relative overflow-hidden">
-
-        {/* Animated gradient orb */}
-        <motion.div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full -z-10 pointer-events-none"
-          style={{ background: 'rgba(208,188,255,0.07)', filter: 'blur(120px)' }}
-          animate={{ scale: [1, 1.08, 1], opacity: [0.6, 1, 0.6] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-        />
-
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="mb-6 inline-flex items-center px-3 py-1 rounded-full border border-white/10"
-          style={{ backgroundColor: '#1b1c1d' }}
-        >
-          <span className="material-symbols-outlined text-xs text-violet-400 mr-2" style={{ fontVariationSettings: "'FILL' 1" }}>security</span>
-          <span className="font-mono text-[0.6875rem] text-violet-400 uppercase tracking-[0.2em]">Enforced Engineering Discipline</span>
-        </motion.div>
-
-        <motion.h1
-          initial={{ opacity: 0, y: 32 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.2 }}
-          className="text-6xl md:text-8xl font-light text-center editorial-header mb-8 leading-[1.1]"
-          style={{ color: '#e3e2e3' }}
-        >
-          <TypingText text="Your AI instructor." />
-          <br />
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.4, duration: 0.6 }}
-            style={{ color: '#a078ff' }}
-          >
-            No excuses.
-          </motion.span>
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 1.7 }}
-          className="max-w-3xl mx-auto text-lg md:text-xl mb-12 font-light leading-relaxed"
-          style={{ color: '#958ea0' }}
-        >
-          Eliminate the skills gap with structured AI-driven curriculums locked by real accountability.
-          If you miss the task, your accountability contact finds out. No skipping. No excuses.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 1.9 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4"
-        >
-          <a href="#waitlist"
-            className="px-8 py-4 font-medium rounded-lg hover:brightness-110 transition-all shadow-lg"
-            style={{ background: 'linear-gradient(135deg, #d0bcff, #a078ff)', color: '#23005c' }}>
-            Commit to Growth
-          </a>
-          <a href="#methodology"
-            className="px-8 py-4 font-medium rounded-lg transition-all border border-white/10 hover:bg-white/5"
-            style={{ color: '#e3e2e3' }}>
-            The Methodology
-          </a>
-        </motion.div>
-      </section>
-
-      {/* The Problem */}
-      <section id="methodology" className="max-w-5xl mx-auto px-8 py-24 border-t border-white/5">
-        <div className="grid md:grid-cols-2 gap-16 items-center">
-          <FadeUp>
-            <h2 className="text-3xl font-light mb-6">The &quot;Judge and Defendant&quot; Problem</h2>
-            <p className="leading-relaxed mb-6" style={{ color: '#958ea0' }}>
-              Self-learning fails because you are both the student and the teacher. When things get hard,
-              the teacher in you lets the student off the hook. You skip the hard problems, ignore the
-              edge cases, and call &quot;good enough&quot; finished.
-            </p>
-            <div className="font-mono text-xs border-l-2 border-red-500/30 pl-4 py-2"
-              style={{ color: 'rgba(255,180,171,0.8)', backgroundColor: 'rgba(255,180,171,0.05)' }}>
-              // RESULT: Fragmented knowledge and zero production readiness.
+    <section id="waitlist" className="py-28 border-t relative overflow-hidden" style={{ borderColor: BORDER }}>
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 60% 50% at 50% 100%, rgba(160,120,255,0.07) 0%, transparent 70%)' }} />
+      <div className="relative max-w-2xl mx-auto px-6 text-center">
+        <FadeUp><span className="mono text-xs font-semibold tracking-widest block mb-4" style={{ color: V }}>EARLY ACCESS</span></FadeUp>
+        <FadeUp delay={1}><h2 className="text-4xl md:text-5xl font-black text-white leading-tight mb-4">Stop planning.<br />Start finishing.</h2></FadeUp>
+        <FadeUp delay={2}>
+          <p className="text-lg mb-4" style={{ color: '#71717a' }}>
+            This is a small project built by one developer in public. We&apos;re onboarding a limited first group manually — every engineer gets set up personally.
+          </p>
+          {count !== null && (
+            <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full" style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+              <span className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px rgba(52,211,153,0.6)' }} />
+              <span className="text-sm" style={{ color: '#71717a' }}><span className="text-white font-bold">{count}</span> engineers on the waitlist</span>
             </div>
-          </FadeUp>
-          <FadeUp delay={0.15}>
-            <div className="rounded-2xl p-8 border border-white/5 shadow-inner" style={{ backgroundColor: '#1f2021' }}>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-4 p-4 rounded-lg border border-white/5 opacity-50" style={{ backgroundColor: '#1b1c1d' }}>
-                  <span className="material-symbols-outlined" style={{ color: '#ffb4ab' }}>cancel</span>
-                  <div className="text-sm font-mono">Without Rapture: I&apos;ll finish this tomorrow.</div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-lg border border-violet-500/20" style={{ backgroundColor: 'rgba(208,188,255,0.07)' }}>
-                  <span className="material-symbols-outlined" style={{ color: '#d0bcff' }}>check_circle</span>
-                  <div className="text-sm font-mono" style={{ color: '#d0bcff' }}>Rapture AI: Task locked. Accountability active.</div>
-                </div>
-              </div>
-            </div>
-          </FadeUp>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="max-w-7xl mx-auto px-8 py-32 border-y border-white/5" style={{ backgroundColor: '#0d0e0f' }}>
-        <div className="flex flex-col md:flex-row gap-16 items-center">
-          <FadeUp delay={0.1} className="w-full md:w-1/2 order-2 md:order-1">
-            <div className="rounded-xl p-6 shadow-2xl border border-white/10" style={{ backgroundColor: '#1f2021' }}>
-              <div className="mb-4 flex items-center justify-between">
-                <div className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#958ea0' }}>Your Goal</div>
-                <div className="flex gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-white/10" />
-                  <div className="w-2 h-2 rounded-full bg-white/10" />
-                </div>
-              </div>
-              <div className="font-mono text-xs space-y-3 leading-relaxed" style={{ color: 'rgba(149,142,160,0.5)' }}>
-                <p style={{ color: '#e3e2e3' }}>
-                  Target role: <span style={{ color: '#a078ff' }}>Senior Node.js Engineer</span>.
-                  Current: Python/Django. Target: Node + TypeScript + System Design.
-                  Available: <span style={{ color: '#a078ff' }}>15 hrs/week</span>. Deadline: 8 weeks.
-                </p>
-                <div className="h-[1px] bg-white/5 w-full" />
-                <div className="flex items-center gap-2" style={{ color: '#d0bcff' }}>
-                  <span className="material-symbols-outlined text-sm">psychology</span>
-                  <span>Generating locked 8-week curriculum...</span>
-                </div>
-                <div style={{ color: 'rgba(78,222,163,0.8)' }}>Week 1: Node.js fundamentals + Express APIs</div>
-                <div style={{ color: 'rgba(78,222,163,0.8)' }}>Week 2: Prisma + PostgreSQL + Auth</div>
-                <div style={{ color: 'rgba(149,142,160,0.5)' }}>Weeks 3–8: locked until you pass each week.</div>
-              </div>
-            </div>
-          </FadeUp>
-          <FadeUp className="w-full md:w-1/2 order-1 md:order-2">
-            <div className="font-mono text-[0.6875rem] text-violet-400 mb-4 uppercase tracking-widest">Goal-Driven Curriculums</div>
-            <h2 className="text-4xl font-light mb-6">Built around your target role</h2>
-            <p className="text-lg mb-8 leading-relaxed" style={{ color: '#958ea0' }}>
-              Tell Rapture AI your target role, current skills, and deadline. It generates a locked
-              week-by-week curriculum you cannot edit or skip. Every task is a step toward that specific role.
-            </p>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <span className="material-symbols-outlined text-xl" style={{ color: '#d0bcff' }}>target</span>
-                <span className="text-sm">Zero generic content. Every task closes a gap in your profile.</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="material-symbols-outlined text-xl" style={{ color: '#d0bcff' }}>lock</span>
-                <span className="text-sm">Once the curriculum starts, it cannot be edited or paused.</span>
-              </li>
-            </ul>
-          </FadeUp>
-        </div>
-      </section>
-
-      {/* Stakes */}
-      <section id="stakes" className="max-w-7xl mx-auto px-8 py-32">
-        <FadeUp className="text-center mb-16">
-          <h2 className="text-4xl font-light mb-4">How accountability works</h2>
-          <p style={{ color: '#958ea0' }}>The secret to consistency isn&apos;t motivation. It&apos;s consequences.</p>
+          )}
         </FadeUp>
-        <StaggerParent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { icon: 'lock', title: 'Hard Task Locks', desc: 'You cannot access the next task until you submit the current one and pass the AI rubric review. No skipping. No reordering.', tag: 'ENFORCED_PROGRESSION: ON' },
-            { icon: 'mail', title: 'Deadline Emails', desc: 'Miss a deadline? Rapture AI automatically emails your accountability contact. You chose them. They will ask questions.', tag: 'AUTO_NOTIFY: ACTIVE' },
-            { icon: 'psychology', title: 'Rubric Grading', desc: 'Every task has a locked rubric set at creation. The AI grades your submission strictly against it — not vibes, not effort.', tag: 'RUBRIC_LOCKED: TRUE' },
-          ].map(({ icon, title, desc, tag }) => (
-            <StaggerChild key={title}>
-              <div className="rounded-2xl p-8 border border-white/5 hover:border-violet-500/30 transition-colors group glow-hover h-full"
-                style={{ backgroundColor: '#1f2021' }}>
-                <span className="material-symbols-outlined text-4xl mb-6 block group-hover:scale-110 transition-transform" style={{ color: '#d0bcff' }}>{icon}</span>
-                <h3 className="text-xl font-medium mb-4">{title}</h3>
-                <p className="text-sm leading-relaxed mb-6" style={{ color: '#958ea0' }}>{desc}</p>
-                <div className="font-mono text-[10px] p-3 rounded" style={{ color: '#a078ff', backgroundColor: 'rgba(208,188,255,0.05)' }}>{tag}</div>
-              </div>
-            </StaggerChild>
-          ))}
-        </StaggerParent>
-      </section>
 
-      {/* Artifacts */}
-      <section className="max-w-7xl mx-auto px-8 py-32 border-t border-white/5">
-        <div className="grid md:grid-cols-12 gap-8">
-          <FadeUp className="md:col-span-5">
-            <div className="font-mono text-[0.6875rem] text-violet-400 mb-4 uppercase tracking-widest">Evidence of Progress</div>
-            <h2 className="text-4xl font-light mb-6">Artifacts, Not Chat</h2>
-            <p className="mb-8 leading-relaxed" style={{ color: '#958ea0' }}>
-              You don&apos;t &quot;talk&quot; about what you&apos;ve learned. You submit real work — code, written explanations,
-              or design decisions — and the AI grades them against a locked rubric.
-            </p>
-            <div className="space-y-6">
-              {[
-                { icon: 'code', title: 'Code Submissions', sub: 'Graded against functional and structural rubric.' },
-                { icon: 'edit_note', title: 'Written Responses', sub: 'Graded for accuracy, depth, and clarity.' },
-                { icon: 'architecture', title: 'Design Decisions', sub: 'Graded for trade-off awareness and correctness.' },
-              ].map(({ icon, title, sub }) => (
-                <div key={title} className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center border border-white/10" style={{ backgroundColor: '#1f2021' }}>
-                    <span className="material-symbols-outlined text-xl" style={{ color: '#d0bcff' }}>{icon}</span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">{title}</div>
-                    <div className="text-xs" style={{ color: '#958ea0' }}>{sub}</div>
-                  </div>
-                </div>
-              ))}
+        {state === 'success' ? (
+          <FadeUp className="rounded-2xl p-10" style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.3)' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 12L9 18L21 6" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>
+            <h3 className="text-xl font-bold text-white mb-2">You&apos;re on the list.</h3>
+            <p className="text-sm" style={{ color: '#71717a' }}>We&apos;ll reach out when your spot opens. Prepare to be held accountable.</p>
           </FadeUp>
-          <FadeUp delay={0.15} className="md:col-span-7">
-            <div className="rounded-2xl border border-white/5 overflow-hidden relative min-h-[400px]" style={{ backgroundColor: '#1f2021' }}>
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
-              <div className="p-8 font-mono text-xs">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex gap-2">
-                    <span style={{ color: '#4edea3' }}>✓ PASSED</span>
-                    <span style={{ color: 'rgba(149,142,160,0.4)' }}>Build #841</span>
-                  </div>
-                  <div style={{ color: '#a078ff' }}>Rubric: WEEK_2_EXPRESS_API</div>
+        ) : (
+          <FadeUp delay={3}>
+            <div className={`rounded-2xl p-8 ${shake ? 'shake' : ''}`} style={{ background: SURFACE, border: `1px solid ${BORDER}` }}>
+              {state === 'duplicate' && (
+                <div className="mb-5 p-3 rounded-lg text-sm" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', color: '#fbbf24' }}>
+                  <strong>Already registered.</strong> This email is already on the waitlist.
                 </div>
-                <div className="space-y-4">
-                  {[
-                    { label: '// Auth Check', key: 'JWT validation', val: 'VALID' },
-                    { label: '// Error Handling', key: '401 on bad token', val: 'VALID' },
-                  ].map(({ label, key, val }) => (
-                    <div key={key} className="p-4 rounded-lg border border-white/5" style={{ backgroundColor: '#0d0e0f' }}>
-                      <div className="mb-1" style={{ color: 'rgba(149,142,160,0.5)' }}>{label}</div>
-                      <div className="flex justify-between">
-                        <span>{key}</span>
-                        <span style={{ color: '#4edea3' }}>{val}</span>
-                      </div>
+              )}
+              {state === 'error' && (
+                <div className="mb-5 p-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}>
+                  Something went wrong. Please try again.
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="space-y-4 text-left">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {[{ name: 'firstName', label: 'FIRST NAME', placeholder: 'Alex' }, { name: 'lastName', label: 'LAST NAME', placeholder: 'Johnson' }].map(f => (
+                    <div key={f.name}>
+                      <label className="mono text-xs block mb-2" style={{ color: '#52525b' }}>{f.label}</label>
+                      <input name={f.name} type="text" required={f.name === 'firstName'} placeholder={f.placeholder}
+                        value={form[f.name as keyof typeof form]} onChange={handleChange} disabled={isDisabled}
+                        className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-zinc-600 focus:outline-none transition-all duration-200 disabled:opacity-50"
+                        style={{ background: SURFACE_R, border: `1px solid ${BORDER}` }}
+                        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(160,120,255,0.6)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(160,120,255,0.1)' }}
+                        onBlur={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.boxShadow = 'none' }} />
                     </div>
                   ))}
-                  <AIFeedbackPanel />
                 </div>
-              </div>
+                <div>
+                  <label className="mono text-xs block mb-2" style={{ color: '#52525b' }}>EMAIL ADDRESS</label>
+                  <input name="email" type="email" required placeholder="alex@company.com"
+                    value={form.email} onChange={handleChange} disabled={isDisabled}
+                    className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder-zinc-600 focus:outline-none transition-all duration-200 disabled:opacity-50"
+                    style={{ background: SURFACE_R, border: `1px solid ${BORDER}` }}
+                    onFocus={e => { e.currentTarget.style.borderColor = 'rgba(160,120,255,0.6)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(160,120,255,0.1)' }}
+                    onBlur={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.boxShadow = 'none' }} />
+                </div>
+                <motion.button type="submit" disabled={isDisabled} whileTap={{ scale: 0.98 }}
+                  className="btn-primary w-full py-4 rounded-xl text-white font-bold text-base violet-glow disabled:opacity-60 flex items-center justify-center gap-3"
+                  style={{ background: V }}>
+                  {state === 'loading'
+                    ? <><svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="3" /><path d="M12 2a10 10 0 0110 10" stroke="white" strokeWidth="3" strokeLinecap="round" /></svg>Submitting...</>
+                    : 'Request Early Access →'}
+                </motion.button>
+              </form>
+              <p className="text-xs mt-5 text-center" style={{ color: '#3f3f46' }}>No spam. Unsubscribe anytime. Built in public by <a href="https://linkedin.com/in/rifatul-islam-ramim" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">Rifatul Islam</a> · Dhaka, Bangladesh</p>
             </div>
           </FadeUp>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ─── Footer ───────────────────────────────────────────────────
+function Footer() {
+  return (
+    <footer className="border-t py-10" style={{ borderColor: BORDER }}>
+      <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded flex items-center justify-center" style={{ background: V }}>
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" fill="white" fillOpacity="0.9" /></svg>
+          </div>
+          <span className="font-bold text-white text-sm">Rapture<span style={{ color: V }}>AI</span></span>
         </div>
-      </section>
-
-      {/* State machine */}
-      <section className="max-w-7xl mx-auto px-8 py-32">
-        <FadeUp className="text-center mb-16">
-          <h2 className="text-4xl font-light mb-4 editorial-header">The Rapture State Machine</h2>
-          <p className="font-mono text-xs uppercase tracking-widest" style={{ color: '#958ea0' }}>Deterministic growth flow</p>
-        </FadeUp>
-        <div className="relative">
-          <div className="absolute top-1/2 left-0 w-full h-[1px] timeline-line -translate-y-1/2 hidden md:block" />
-          <StaggerParent className="grid grid-cols-2 md:grid-cols-6 gap-4 relative z-10">
-            {[
-              { n: '01', label: 'INTAKE', sub: 'Goal Analysis' },
-              { n: '02', label: 'LOCK', sub: 'Locked Path' },
-              { n: '03', label: 'EXECUTE', sub: 'Code/Write' },
-              { n: '04', label: 'SUBMIT', sub: 'Artifact' },
-              { n: '05', label: 'REVIEW', sub: 'Rubric Audit' },
-              { n: '06', label: 'ADVANCE', sub: 'Next Task' },
-            ].map(({ n, label, sub }) => (
-              <StaggerChild key={n}>
-                <div className="border border-white/10 p-4 rounded-xl text-center glow-hover transition-all"
-                  style={{ backgroundColor: '#0a0a0a' }}>
-                  <div className="font-mono text-[10px] text-violet-400 mb-2">{n}. {label}</div>
-                  <div className="text-xs font-medium">{sub}</div>
-                </div>
-              </StaggerChild>
-            ))}
-          </StaggerParent>
+        <p className="mono text-xs" style={{ color: '#3f3f46' }}>© 2026 Rapture AI · rapture.co.im</p>
+        <div className="flex gap-6 text-xs" style={{ color: '#3f3f46' }}>
+          {[['#problem', 'Problem'], ['#how-it-works', 'How It Works'], ['#who', 'Who It\'s For'], ['#waitlist', 'Early Access']].map(([href, label]) => (
+            <a key={href} href={href} className="hover:text-white transition-colors">{label}</a>
+          ))}
         </div>
-      </section>
+      </div>
+    </footer>
+  )
+}
 
-      {/* Waitlist CTA */}
-      <section id="waitlist" className="border-t border-white/5 py-32 text-center" style={{ backgroundColor: '#0d0e0f' }}>
-        <FadeUp>
-          <h2 className="text-4xl md:text-5xl font-light mb-4 editorial-header">
-            Stop planning. Start shipping.
-          </h2>
-          <p className="font-mono text-xs uppercase tracking-[0.3em] mb-12" style={{ color: '#958ea0' }}>
-            Early access — limited spots
-          </p>
-        </FadeUp>
+// ─── Main ─────────────────────────────────────────────────────
+export default function Home() {
+  function scrollToWaitlist() {
+    const el = document.getElementById('waitlist')
+    if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: 'smooth' })
+  }
 
-        <FadeUp delay={0.15}>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3 w-full max-w-md mx-auto px-4">
-            <div className="flex gap-3">
-              <input
-                name="firstName"
-                type="text"
-                placeholder="First name"
-                value={form.firstName}
-                onChange={handleChange}
-                required
-                disabled={isDisabled}
-                className="flex-1 px-4 py-3 rounded-lg border border-white/10 text-sm font-light placeholder-white/20 focus:outline-none focus:border-violet-500/50 disabled:opacity-50 transition-colors"
-                style={{ backgroundColor: '#1f2021', color: '#e3e2e3' }}
-              />
-              <input
-                name="lastName"
-                type="text"
-                placeholder="Last name"
-                value={form.lastName}
-                onChange={handleChange}
-                disabled={isDisabled}
-                className="flex-1 px-4 py-3 rounded-lg border border-white/10 text-sm font-light placeholder-white/20 focus:outline-none focus:border-violet-500/50 disabled:opacity-50 transition-colors"
-                style={{ backgroundColor: '#1f2021', color: '#e3e2e3' }}
-              />
+  return (
+    <div style={{ background: BG }}>
+      <Navbar onWaitlist={scrollToWaitlist} />
+
+      {/* Hero */}
+      <section className="relative min-h-screen flex flex-col justify-center pt-24 pb-16 noise-bg grid-overlay overflow-hidden">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse, rgba(160,120,255,0.08) 0%, transparent 70%)' }} />
+        <div className="relative z-10 max-w-6xl mx-auto px-6 w-full">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} className="mb-6">
+                <span className="mono text-xs font-semibold tracking-widest rounded-full px-3 py-1.5" style={{ color: V, border: `1px solid rgba(160,120,255,0.3)`, background: V_FAINT }}>
+                  EARLY ACCESS — LIMITED SPOTS
+                </span>
+              </motion.div>
+              <TypingHero />
+              <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 1.8 }}
+                className="mt-8 text-lg leading-relaxed" style={{ color: '#71717a' }}>
+                Build your curriculum. Lock it. Put something real on the line. Miss a deadline and your accountability contact finds out — and you lose part of your stake. Hit every deadline and keep everything.
+              </motion.p>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 2.1 }}
+                className="mt-10 flex flex-col sm:flex-row gap-4 items-start">
+                <button onClick={scrollToWaitlist} className="btn-primary text-white font-bold px-8 py-3.5 rounded-xl text-base violet-glow" style={{ background: V }}>
+                  Get Early Access →
+                </button>
+                <a href="#how-it-works" className="flex items-center gap-2 py-3.5 text-base font-medium transition-colors" style={{ color: '#71717a' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#71717a')}>
+                  <span>See how it works</span>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </a>
+              </motion.div>
             </div>
-            <div className="flex gap-3">
-              <input
-                name="email"
-                type="email"
-                placeholder="engineer@domain.com"
-                value={form.email}
-                onChange={handleChange}
-                required
-                disabled={isDisabled}
-                className="flex-1 px-4 py-3 rounded-lg border border-white/10 text-sm font-light placeholder-white/20 focus:outline-none focus:border-violet-500/50 disabled:opacity-50 transition-colors"
-                style={{ backgroundColor: '#1f2021', color: '#e3e2e3' }}
-              />
-              <motion.button
-                type="submit"
-                disabled={isDisabled}
-                whileTap={{ scale: 0.97 }}
-                whileHover={{ scale: 1.02 }}
-                className="px-6 py-3 font-medium rounded-lg transition-all disabled:opacity-50 whitespace-nowrap"
-                style={{ backgroundColor: '#e3e2e3', color: '#0a0a0a' }}
-              >
-                {state === 'loading' ? 'Joining...' : state === 'success' ? "You're in ✓" : 'Apply Now'}
-              </motion.button>
-            </div>
-
-            {state === 'success' && (
-              <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-sm mt-1" style={{ color: '#4edea3' }}>
-                You&apos;re on the list. We&apos;ll email you when we launch.
-              </motion.p>
-            )}
-            {state === 'duplicate' && (
-              <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-sm mt-1" style={{ color: '#c3d000' }}>
-                You&apos;re already on the waitlist.
-              </motion.p>
-            )}
-            {state === 'error' && (
-              <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-sm mt-1" style={{ color: '#ffb4ab' }}>
-                Something went wrong. Try again.
-              </motion.p>
-            )}
-          </form>
-        </FadeUp>
-
-        <p className="text-[10px] font-mono uppercase tracking-widest mt-8" style={{ color: 'rgba(149,142,160,0.5)' }}>
-          Built in public by{' '}
-          <a href="https://linkedin.com/in/rifatul-islam-ramim" target="_blank" rel="noopener noreferrer"
-            className="hover:text-white transition-colors underline">
-            Rifatul Islam
-          </a>
-          {' '}· Dhaka, Bangladesh
-        </p>
+            {/* Right — mockup */}
+            <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }}>
+              <HeroMockup />
+            </motion.div>
+          </div>
+        </div>
       </section>
 
-      {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-8 py-12 flex flex-col md:flex-row justify-between items-center gap-8 border-t border-white/5" style={{ color: '#958ea0' }}>
-        <div className="font-mono text-xs font-bold tracking-tighter text-violet-400 opacity-50">Rapture AI © 2026</div>
-        <div className="flex gap-8 font-mono text-[10px] uppercase tracking-widest">
-          <a className="hover:text-white transition-colors" href="#methodology">Methodology</a>
-          <a className="hover:text-white transition-colors" href="#stakes">How It Works</a>
-          <a className="hover:text-white transition-colors" href="#waitlist">Early Access</a>
-        </div>
-        <div className="font-mono text-[10px]" style={{ color: 'rgba(149,142,160,0.4)' }}>
-          rapture.co.im — coming soon
-        </div>
-      </footer>
-
-    </main>
+      <Ticker />
+      <ProblemSection />
+      <StakesSection />
+      <WalkthroughSection />
+      <WhoSection />
+      <WaitlistSection />
+      <Footer />
+    </div>
   )
 }

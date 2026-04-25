@@ -58,4 +58,13 @@ router.post('/', limiter, async (req: Request, res: Response) => {
   return res.status(201).json({ success: true })
 })
 
+router.get('/count', async (_req: Request, res: Response) => {
+  try {
+    const count = await prisma.waitlistEntry.count()
+    return res.json({ count })
+  } catch {
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
 export default router
