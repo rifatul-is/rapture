@@ -1,61 +1,47 @@
 @import "tailwindcss";
 
+@theme {
+  --color-violet:         #a078ff;
+  --color-violet-faint:   rgba(160, 120, 255, 0.08);
+  --color-page:           #0a0a0a;
+  --color-surface:        #111111;
+  --color-surface-raised: #161616;
+  --color-border:         #1e1e1e;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  --animate-fade-in: fade-in 1s ease-out forwards;
+
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
 body {
-  background-color: #0a0a0a;
+  background: #0a0a0a;
   color: #e8e8e8;
-  -webkit-font-smoothing: antialiased;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
+  margin: 0;
   overflow-x: hidden;
 }
 
-/* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #0a0a0a; }
 ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
 
-/* ── Noise + Grid overlay ──────────────────────────────────── */
-.noise-bg { position: relative; }
-.noise-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.4;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-}
-.grid-overlay {
-  background-image:
-    linear-gradient(rgba(160,120,255,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(160,120,255,0.04) 1px, transparent 1px);
-  background-size: 64px 64px;
-}
+.mono { font-family: "JetBrains Mono", "Space Mono", monospace; }
 
-/* ── Cursor blink ──────────────────────────────────────────── */
-@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-.cursor-blink {
-  display: inline-block;
-  width: 3px;
-  height: 0.85em;
-  background: #a078ff;
-  margin-left: 2px;
-  vertical-align: middle;
-  animation: blink 1s step-end infinite;
-}
-
-/* ── Ticker ────────────────────────────────────────────────── */
-@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.ticker-inner { display: flex; animation: ticker 30s linear infinite; }
-
-/* ── Glow ──────────────────────────────────────────────────── */
 .violet-glow { box-shadow: 0 0 40px rgba(160,120,255,0.18), 0 0 80px rgba(160,120,255,0.06); }
 .violet-glow-sm { box-shadow: 0 0 20px rgba(160,120,255,0.15); }
 .violet-glow-text { text-shadow: 0 0 30px rgba(160,120,255,0.5); }
 
-/* ── Gradient border card ──────────────────────────────────── */
 .gradient-border { position: relative; }
 .gradient-border::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -1px;
   border-radius: inherit;
@@ -63,11 +49,6 @@ body {
   z-index: -1;
 }
 
-/* ── Feature card ──────────────────────────────────────────── */
-.feature-card { transition: all 0.3s cubic-bezier(.22,1,.36,1); }
-.feature-card:hover { transform: translateY(-4px); border-color: rgba(160,120,255,0.4) !important; }
-
-/* ── Shake ─────────────────────────────────────────────────── */
 @keyframes shake {
   0%,100% { transform: translateX(0); }
   20% { transform: translateX(-4px); }
@@ -77,10 +58,14 @@ body {
 }
 .shake { animation: shake 0.5s ease; }
 
-/* ── Btn hover ─────────────────────────────────────────────── */
-.btn-primary { transition: all 0.2s; }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(160,120,255,0.35); }
-.btn-primary:active { transform: translateY(0); }
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker-inner { display: flex; animation: ticker 30s linear infinite; }
 
-/* ── Mono font util ────────────────────────────────────────── */
-.mono { font-family: 'JetBrains Mono', 'Space Mono', monospace; }
+@keyframes mockup-rise {
+  from { opacity: 0; transform: translateY(50px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.mockup-rise {
+  animation: mockup-rise 3s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
+}
+
